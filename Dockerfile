@@ -6,9 +6,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of your application code and templates
+# Copy the rest of your application code, templates, and static files
 COPY app.py .
 COPY templates templates/
+COPY static static/
 
 # Expose the port Gunicorn will run on
 EXPOSE 8000

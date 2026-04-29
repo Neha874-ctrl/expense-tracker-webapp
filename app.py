@@ -4,6 +4,7 @@ import uuid
 import requests
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
+
 # --- Configuration and Database Initialization ---
 
 app = Flask(__name__)
@@ -22,6 +23,15 @@ def add_security_headers(response):
     response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
 
     # Content Security Policy (CSP)
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "img-src 'self' https://placehold.co https://imagedelivery.net data:; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "object-src 'none'; frame-ancestors 'none'; "
+        "upgrade-insecure-requests;"
+    )
     response.headers['Content-Security-Policy'] = csp
     
     return response
@@ -136,8 +146,17 @@ def load_app_data():
     }
 
 # 3. Initialize DB and Load Data on Application Start
-initialize_db()
-app_data = load_app_data() # Load global application state from Turso
+try:
+    initialize_db()
+    app_data = load_app_data() # Load global application state from Turso
+except Exception as e:
+    print(f"CRITICAL: Database initialization failed: {e}")
+    # Fallback to empty state to allow the app to at least start
+    app_data = {
+        "budget": {},
+        "expenses": [],
+        "categories": ["Food", "Travel", "Entertainment"]
+    }
 
 # --- API Endpoints ---
 
@@ -151,7 +170,10 @@ def get_state():
     """Returns the current application state from the database."""
     global app_data
     # Re-fetch state from DB to ensure latest data is returned
-    app_data = load_app_data() 
+    try:
+        app_data = load_app_data()
+    except:
+        pass
     return jsonify(app_data)
 
 @app.route('/api/categories', methods=['POST'])
@@ -287,7 +309,10 @@ def generate_report():
     """Calculates and returns the full expense report."""
     
     global app_data
-    app_data = load_app_data() # Always reload data for the report
+    try:
+        app_data = load_app_data() # Always reload data for the report
+    except:
+        pass
 
     current_budget = app_data.get('budget', {})
     current_expenses = app_data.get('expenses', [])
