@@ -22,15 +22,6 @@ def add_security_headers(response):
     response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
 
     # Content Security Policy (CSP)
-    csp = (
-    "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-    "img-src 'self' https://placehold.co https://imagedelivery.net data:; "
-    "font-src 'self' https://fonts.gstatic.com; "
-    "object-src 'none'; frame-ancestors 'none'; "
-    "upgrade-insecure-requests;"
-)
     response.headers['Content-Security-Policy'] = csp
     
     return response

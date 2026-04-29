@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/* Custom styles from index.html */
+:root {
+    --color-surface: #1e0934;
+    --color-background: #12051f;
+    --color-primary: #7c3aed;
+    --color-secondary: #be185d;
+    --color-on-surface: #f3e8ff;
+    --color-accent-lime: #a3e635;
+    --color-text-dark: #1f2937;
+    --radius-large: 1.5rem;
+}
+
+@theme {
+  --color-surface: #1e0934;
+  --color-background: #12051f;
+  --color-primary: #7c3aed;
+  --color-secondary: #be185d;
+  --color-accent-lime: #a3e635;
+}
