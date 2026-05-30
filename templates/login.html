@@ -7,7 +7,7 @@
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
     <!-- Load Compiled Tailwind CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=1.0.2">
     <!-- Google Fonts & Material Symbols -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -52,7 +52,7 @@
         </div>
 
         <!-- M3 Auth Card Container -->
-        <div class="bg-surface-container-low border border-outline-variant/30 rounded-[28px] p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 relative transition-colors duration-300">
+        <div class="bg-surface-container-low border border-outline-variant/30 rounded-[28px] p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 relative transition-colors duration-300" style="max-width: 448px;">
             
             <!-- Card Header -->
             <div class="text-center flex flex-col gap-2">
