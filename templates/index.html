@@ -427,24 +427,39 @@
                 // 3. Custom dropdown option
                 const optElement = document.createElement('div');
                 const isSelected = expenseCategorySelect.value === cat;
-                optElement.className = `px-3.5 py-2.5 rounded-lg text-sm cursor-pointer transition duration-150 font-semibold flex items-center justify-between ${
-                    isSelected 
-                        ? 'bg-primary/15 text-primary' 
-                        : 'text-on-surface hover:bg-surface-container-highest'
-                }`;
+                optElement.style.cssText = `
+                    padding: 10px 14px;
+                    border-radius: 10px;
+                    font-size: 0.875rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    transition: background 150ms;
+                    color: ${isSelected ? 'var(--md-sys-color-primary)' : 'var(--md-sys-color-on-surface)'};
+                    background: ${isSelected ? 'color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent)' : 'transparent'};
+                `;
                 optElement.innerHTML = `
                     <span>${escapeHtml(cat)}</span>
-                    ${isSelected ? '<span class="material-symbols-outlined text-sm">check</span>' : ''}
+                    ${isSelected ? '<span class="material-symbols-outlined" style="font-size:1rem;">check</span>' : ''}
                 `;
+                optElement.addEventListener('mouseenter', () => {
+                    if (!isSelected) optElement.style.background = 'color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent)';
+                });
+                optElement.addEventListener('mouseleave', () => {
+                    if (!isSelected) optElement.style.background = 'transparent';
+                });
                 optElement.onclick = (e) => {
                     e.stopPropagation();
                     expenseCategorySelect.value = cat;
                     customDropdownSelected.textContent = cat;
-                    customDropdownSelected.className = 'text-on-surface font-semibold';
+                    customDropdownSelected.style.color = 'var(--md-sys-color-on-surface)';
+                    customDropdownSelected.style.fontWeight = '600';
                     closeCustomDropdown();
                     renderCategories(categories, currentBudget);
                 };
-                customDropdownMenu.appendChild(optElement);
+                if (customDropdownMenu) customDropdownMenu.appendChild(optElement);
             });
         }
 
@@ -792,17 +807,12 @@
         // Custom Dropdown Open/Close State Managers
         const dropdownTrigger = document.getElementById('custom-dropdown-trigger');
         const dropdownArrow = document.getElementById('dropdown-arrow');
-
-        // Create a body-level portal for the dropdown to escape stacking contexts
-        const dropdownPortal = document.createElement('div');
-        dropdownPortal.id = 'custom-dropdown-menu';
-        dropdownPortal.className = 'hidden fixed bg-surface-container-high border border-outline-variant/30 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 overflow-y-auto animate-fade-in';
-        dropdownPortal.style.cssText = 'z-index: 9999; max-height: 220px; min-width: 200px;';
-        document.body.appendChild(dropdownPortal);
+        const dropdownPortal = document.getElementById('custom-dropdown-menu');
 
         function positionDropdownPortal() {
             const rect = dropdownTrigger.getBoundingClientRect();
-            dropdownPortal.style.top = (rect.bottom + 6) + 'px';
+            // Use viewport-relative coordinates for position:fixed elements
+            dropdownPortal.style.top  = (rect.bottom + 6) + 'px';
             dropdownPortal.style.left = rect.left + 'px';
             dropdownPortal.style.width = rect.width + 'px';
         }
@@ -859,5 +869,12 @@
         // Initial load
         window.onload = renderApp;
     </script>
+
+    <!-- Body-level dropdown portal: static HTML so Tailwind compiles all classes -->
+    <div id="custom-dropdown-menu"
+         class="hidden fixed rounded-2xl border border-outline-variant/30 p-2 flex flex-col gap-0.5 overflow-y-auto"
+         style="z-index:9999; max-height:220px; box-shadow: 0 8px 32px rgba(0,0,0,0.28); background: var(--md-sys-color-surface-container-high);">
+    </div>
+
 </body>
 </html>
