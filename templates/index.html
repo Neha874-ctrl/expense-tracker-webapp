@@ -207,6 +207,12 @@
         </div>
     </main>
 
+    <!-- Body-level dropdown portal: must be before <script> so getElementById finds it immediately -->
+    <div id="custom-dropdown-menu"
+         class="hidden fixed rounded-2xl border border-outline-variant/30 p-2 flex flex-col gap-0.5 overflow-y-auto"
+         style="z-index:9999; max-height:220px; box-shadow: 0 8px 32px rgba(0,0,0,0.28); background: var(--md-sys-color-surface-container-high);">
+    </div>
+
     <script>
         // HTML Escaping Helper for XSS Mitigation
         function escapeHtml(str) {
@@ -869,12 +875,6 @@
         // Initial load
         window.onload = renderApp;
     </script>
-
-    <!-- Body-level dropdown portal: static HTML so Tailwind compiles all classes -->
-    <div id="custom-dropdown-menu"
-         class="hidden fixed rounded-2xl border border-outline-variant/30 p-2 flex flex-col gap-0.5 overflow-y-auto"
-         style="z-index:9999; max-height:220px; box-shadow: 0 8px 32px rgba(0,0,0,0.28); background: var(--md-sys-color-surface-container-high);">
-    </div>
 
 </body>
 </html>
