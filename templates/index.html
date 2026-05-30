@@ -649,19 +649,25 @@
         }
 
         // ─── Donut chart helper ────────────────────────────────────────────────
-        function buildDonutChart(report, totalSpent) {
+        function buildDonutChart(report, totalSpent, totalBudget) {
             const section = document.getElementById('donut-chart-section');
             section.innerHTML = '';
-            if (!report || report.length === 0 || totalSpent <= 0) return;
+            if (!report || report.length === 0) return;
 
+            // Vibrant, distinct colors that stand out from the beige/sage theme
             const palette = [
-                'var(--md-sys-color-primary)',
-                'var(--md-sys-color-tertiary)',
-                'var(--md-sys-color-secondary)',
-                '#c6d68f', '#7aab8a', '#b0c77a', '#8faf6e', '#d4e4a0'
+                '#00b4d8', // Vibrant Blue-Teal
+                '#9b5de5', // Vibrant Purple
+                '#f15bb5', // Vibrant Magenta
+                '#fee440', // Vibrant Yellow
+                '#00f5d4', // Vibrant Mint
+                '#ff70a6', // Vibrant Pastel Pink
+                '#ff9770', // Vibrant Coral
+                '#4ea8de', // Vibrant Sky Blue
+                '#70e000', // Vibrant Lime Green
+                '#ff5400'  // Vibrant Red-Orange
             ];
 
-            // Use stroke-dasharray segments on a single ring — much cleaner at small sizes
             const SIZE = 72, R = 26, cx = 36, cy = 36;
             const CIRC = 2 * Math.PI * R;
             const svgNS = 'http://www.w3.org/2000/svg';
@@ -670,7 +676,7 @@
             svg.setAttribute('viewBox', `0 0 72 72`);
             svg.style.cssText = `width:${SIZE}px;height:${SIZE}px;flex-shrink:0;transform:rotate(-90deg);overflow:visible;`;
 
-            // Background track
+            // Background track (represents remaining budget / full budget)
             const bgCircle = document.createElementNS(svgNS, 'circle');
             bgCircle.setAttribute('cx', cx); bgCircle.setAttribute('cy', cy); bgCircle.setAttribute('r', R);
             bgCircle.setAttribute('fill', 'none');
@@ -683,8 +689,11 @@
             let offsetAcc = 0;
             const itemsWithSpend = report.filter(i => i.spent > 0);
 
+            // Total budget capacity
+            const cap = totalBudget > 0 ? Math.max(totalBudget, totalSpent) : (totalSpent > 0 ? totalSpent : 1);
+
             itemsWithSpend.forEach((item, i) => {
-                const ratio = item.spent / totalSpent;
+                const ratio = item.spent / cap;
                 const dash = ratio * CIRC;
                 const gap  = CIRC - dash;
 
@@ -698,12 +707,15 @@
                 arc.setAttribute('stroke-linecap', 'butt');
                 arc.style.cssText = 'cursor:pointer;transition:stroke-width 120ms,opacity 120ms;';
 
+                // Category ratio relative to total spent for tooltip
+                const spentRatio = totalSpent > 0 ? item.spent / totalSpent : 0;
+
                 arc.addEventListener('mouseenter', () => {
                     segments.forEach(s => s !== arc && (s.style.opacity = '0.3'));
                     arc.setAttribute('stroke-width', '13');
                     tooltip.style.opacity = '1';
                     tooltipCat.textContent = item.category;
-                    tooltipVal.textContent = `₹${item.spent.toFixed(2)}  ·  ${(ratio*100).toFixed(1)}%`;
+                    tooltipVal.textContent = `₹${item.spent.toFixed(2)}  ·  ${(spentRatio*100).toFixed(1)}%`;
                 });
                 arc.addEventListener('mouseleave', () => {
                     segments.forEach(s => { s.style.opacity = '1'; s.setAttribute('stroke-width','10'); });
@@ -715,7 +727,7 @@
                 svg.appendChild(arc);
             });
 
-            // Centre text — rendered in a wrapper so it doesn't rotate with the SVG
+            // Centre text
             const svgWrapper = document.createElement('div');
             svgWrapper.style.cssText = 'position:relative;flex-shrink:0;';
             svgWrapper.appendChild(svg);
@@ -763,7 +775,7 @@
             const legend = document.createElement('div');
             legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px 12px;flex:1;';
             itemsWithSpend.forEach((item, i) => {
-                const pct = ((item.spent / totalSpent) * 100).toFixed(1);
+                const pct = totalSpent > 0 ? ((item.spent / totalSpent) * 100).toFixed(1) : '0.0';
                 const dot = document.createElement('div');
                 dot.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:0.68rem;font-weight:600;color:var(--md-sys-color-on-surface-variant);';
                 dot.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${palette[i % palette.length]};flex-shrink:0;"></span>${escapeHtml(item.category)}<span style="color:var(--md-sys-color-on-surface-variant);opacity:0.6;font-weight:400;">${pct}%</span>`;
@@ -813,7 +825,7 @@
             `;
 
             // Build donut chart
-            buildDonutChart(reportData.report, reportData.total_spent);
+            buildDonutChart(reportData.report, reportData.total_spent, reportData.total_budget);
 
             reportData.report.forEach(item => {
                 const isItemOverBudget = item.difference > 0;
