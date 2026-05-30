@@ -321,7 +321,7 @@
             categories.forEach(cat => {
                 // 1. M3 Input Chip
                 const catElement = document.createElement('div');
-                catElement.className = 'flex items-center bg-secondary-container text-on-secondary-container text-xs font-medium pl-3.5 pr-2 py-1.5 rounded-full border border-outline-variant/30 shadow-sm';
+                catElement.className = 'animate-fade-in flex items-center bg-secondary-container text-on-secondary-container text-xs font-medium pl-3.5 pr-2 py-1.5 rounded-full border border-outline-variant/30 shadow-sm';
                 catElement.innerHTML = `
                     <span class="category-name-text"></span>
                     <button class="remove-category-btn ml-2 h-5 w-5 rounded-full text-on-secondary-container/70 hover:bg-on-secondary-container/10 hover:text-error transition duration-150 flex items-center justify-center">
@@ -363,7 +363,7 @@
                 const spentPercentage = item.budget > 0 ? Math.min(100, (item.spent / item.budget) * 100) : (item.spent > 0 ? 100 : 0);
                 
                 const card = document.createElement('div');
-                card.className = `p-5 rounded-[24px] border shadow-sm transition duration-200 hover:shadow-md flex flex-col gap-3.5 ${containerBg}`;
+                card.className = `animate-fade-in p-5 rounded-[24px] border shadow-sm transition duration-200 hover:shadow-md flex flex-col gap-3.5 ${containerBg}`;
                 
                 const statusText = isItemOverBudget 
                     ? `Over Budget by ₹${Math.abs(item.difference).toFixed(2)}` 
@@ -419,7 +419,7 @@
 
             expenses.slice().reverse().forEach(exp => {
                 const row = document.createElement('tr');
-                row.className = 'hover:bg-surface-container-high/50 transition-colors duration-150 border-b border-outline-variant/20';
+                row.className = 'animate-fade-in hover:bg-surface-container-high/50 transition-colors duration-150 border-b border-outline-variant/20';
                 
                 const expenseId = exp.id;
                 const amountText = `₹${exp.amount.toFixed(2)}`;
