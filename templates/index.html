@@ -322,6 +322,7 @@
                 // 1. M3 Input Chip
                 const catElement = document.createElement('div');
                 catElement.className = 'animate-fade-in flex items-center bg-secondary-container text-on-secondary-container text-xs font-medium pl-3.5 pr-2 py-1.5 rounded-full border border-outline-variant/30 shadow-sm';
+                catElement.dataset.category = cat;
                 catElement.innerHTML = `
                     <span class="category-name-text"></span>
                     <button class="remove-category-btn ml-2 h-5 w-5 rounded-full text-on-secondary-container/70 hover:bg-on-secondary-container/10 hover:text-error transition duration-150 flex items-center justify-center">
@@ -364,6 +365,7 @@
                 
                 const card = document.createElement('div');
                 card.className = `animate-fade-in p-5 rounded-[24px] border shadow-sm transition duration-200 hover:shadow-md flex flex-col gap-3.5 ${containerBg}`;
+                card.dataset.category = item.category;
                 
                 const statusText = isItemOverBudget 
                     ? `Over Budget by ₹${Math.abs(item.difference).toFixed(2)}` 
@@ -420,6 +422,7 @@
             expenses.slice().reverse().forEach(exp => {
                 const row = document.createElement('tr');
                 row.className = 'animate-fade-in hover:bg-surface-container-high/50 transition-colors duration-150 border-b border-outline-variant/20';
+                row.dataset.id = exp.id;
                 
                 const expenseId = exp.id;
                 const amountText = `₹${exp.amount.toFixed(2)}`;
@@ -559,7 +562,22 @@
             } else if (action === 'remove') {
                 catName = categoryName;
                 closeDeleteModal();
-                showReportLoadingState();
+                
+                const targetChip = document.querySelector(`#category-list div[data-category="${catName}"]`);
+                const targetCard = document.querySelector(`#report-summary div[data-category="${catName}"]`);
+                if (targetChip) targetChip.classList.add('animate-fade-out');
+                if (targetCard) targetCard.classList.add('animate-fade-out');
+                
+                const apiPromise = apiFetch('/api/categories', 'POST', { action: 'remove', category: catName });
+                
+                await new Promise(resolve => setTimeout(resolve, 220));
+                
+                const result = await apiPromise;
+                if (result) {
+                    showAlert(result.message, 'success');
+                    renderApp();
+                }
+                return;
             } else {
                 return;
             }
@@ -582,17 +600,17 @@
 
         async function deleteExpense(expenseId) {
             closeDeleteModal();
-            showReportLoadingState();
             
-            const logBody = document.getElementById('expense-log-body');
-            if (logBody) {
-                const rows = logBody.querySelectorAll('tr');
-                rows.forEach(row => {
-                    row.classList.add('animate-pulse', 'opacity-65');
-                });
+            const targetRow = document.querySelector(`#expense-log-body tr[data-id="${expenseId}"]`);
+            if (targetRow) {
+                targetRow.classList.add('animate-fade-out');
             }
-
-            const result = await apiFetch(`/api/expense/${expenseId}`, 'DELETE');
+            
+            const apiPromise = apiFetch(`/api/expense/${expenseId}`, 'DELETE');
+            
+            await new Promise(resolve => setTimeout(resolve, 220));
+            
+            const result = await apiPromise;
             if (result) {
                 showAlert(result.message, 'success');
                 renderApp();
