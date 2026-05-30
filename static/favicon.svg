@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="var(--md-sys-color-primary, #466827)" />
+      <stop offset="100%" stop-color="var(--md-sys-color-tertiary, #2c6b63)" />
+    </linearGradient>
+  </defs>
+  <!-- Outer ring representing Payment Ground / Loop -->
+  <circle cx="256" cy="256" r="210" fill="none" stroke="url(#logoGrad)" stroke-width="36" />
+  
+  <!-- Wallet shape -->
+  <g fill="url(#logoGrad)">
+    <!-- Folded top cover -->
+    <path d="M 165,171 H 317 A 24,24 0 0 1 341,195 V 205 H 141 V 195 A 24,24 0 0 1 165,171 Z" opacity="0.85" />
+    <!-- Main body -->
+    <rect x="141" y="201" width="200" height="140" rx="24" />
+    <!-- Clasp/flap -->
+    <rect x="311" y="246" width="60" height="50" rx="16" />
+    <!-- Snap button -->
+    <circle cx="346" cy="271" r="7" fill="var(--md-sys-color-surface-container-lowest, #ffffff)" />
+  </g>
+  <!-- Dollar sign in the center -->
+  <text x="237" y="301" font-family="'Outfit', 'Roboto', sans-serif" font-size="94" font-weight="700" fill="var(--md-sys-color-surface-container-lowest, #ffffff)" text-anchor="middle">$</text>
+</svg>
