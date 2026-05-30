@@ -488,7 +488,17 @@
                 renderExpenseLog(reportResult.expenses_log);
             }
         }
-
+        function showReportLoadingState() {
+            const summaryDiv = document.getElementById('report-summary');
+            const cards = summaryDiv.querySelectorAll('div');
+            cards.forEach(card => {
+                card.classList.add('animate-pulse', 'opacity-60');
+            });
+            const overall = document.getElementById('overall-summary');
+            if (overall) {
+                overall.classList.add('animate-pulse', 'opacity-60');
+            }
+        }
 
         // ------------------------------------------
         // HANDLERS (Form submissions and actions)
@@ -544,9 +554,50 @@
             
             if (action === 'add') {
                 catName = document.getElementById('new-category-name').value;
+                if (!catName || !catName.trim()) return;
+
+                // Show skeletons for new category addition
+                const categoryListDiv = document.getElementById('category-list');
+                const budgetInputsDiv = document.getElementById('budget-inputs');
+                const summaryDiv = document.getElementById('report-summary');
+                
+                // Remove empty category helper text if present
+                const emptyText = categoryListDiv.querySelector('.italic');
+                if (emptyText) emptyText.remove();
+                
+                // 1. Chip skeleton
+                const chipSk = document.createElement('div');
+                chipSk.className = 'animate-pulse flex items-center bg-secondary-container/20 text-transparent pl-3.5 pr-2 py-1.5 rounded-full border border-outline-variant/10 shadow-sm w-20 h-[30px]';
+                categoryListDiv.appendChild(chipSk);
+                
+                // 2. Budget Input skeleton
+                const inputSk = document.createElement('div');
+                inputSk.className = 'animate-pulse relative mt-2 w-full border border-outline-variant/25 rounded-xl bg-surface-container-low/20 h-[46px]';
+                budgetInputsDiv.appendChild(inputSk);
+                
+                // 3. Card skeleton
+                const cardSk = document.createElement('div');
+                cardSk.className = 'animate-pulse p-5 rounded-[24px] border border-outline-variant/10 bg-surface-container-lowest/30 shadow-sm flex flex-col gap-3.5 h-[154px] w-full';
+                cardSk.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div class="h-5 w-24 bg-on-surface/10 rounded"></div>
+                        <div class="h-4 w-12 bg-on-surface/10 rounded-full"></div>
+                    </div>
+                    <div class="h-2 w-full rounded-full bg-surface-variant/30"></div>
+                    <div class="flex justify-between">
+                        <div class="h-3 w-16 bg-on-surface/10 rounded"></div>
+                        <div class="h-3 w-16 bg-on-surface/10 rounded"></div>
+                    </div>
+                    <div class="flex justify-between border-t border-outline-variant/10 pt-2.5 mt-0.5">
+                        <div class="h-3 w-10 bg-on-surface/10 rounded"></div>
+                        <div class="h-3 w-20 bg-on-surface/10 rounded"></div>
+                    </div>
+                `;
+                summaryDiv.appendChild(cardSk);
             } else if (action === 'remove') {
                 catName = categoryName;
                 closeDeleteModal();
+                showReportLoadingState();
             } else {
                 return;
             }
@@ -558,9 +609,10 @@
 
             const result = await apiFetch('/api/categories', 'POST', payload);
             if (result) {
-                document.getElementById('new-category-name').value = '';
-                // Trigger peer-placeholder behavior refresh
-                document.getElementById('new-category-name').blur();
+                if (action === 'add') {
+                    document.getElementById('new-category-name').value = '';
+                    document.getElementById('new-category-name').blur();
+                }
                 showAlert(result.message, 'success');
                 renderApp();
             }
@@ -568,6 +620,16 @@
 
         async function deleteExpense(expenseId) {
             closeDeleteModal();
+            showReportLoadingState();
+            
+            const logBody = document.getElementById('expense-log-body');
+            if (logBody) {
+                const rows = logBody.querySelectorAll('tr');
+                rows.forEach(row => {
+                    row.classList.add('animate-pulse', 'opacity-65');
+                });
+            }
+
             const result = await apiFetch(`/api/expense/${expenseId}`, 'DELETE');
             if (result) {
                 showAlert(result.message, 'success');
@@ -577,6 +639,8 @@
 
         document.getElementById('budget-form').addEventListener('submit', async function(e) {
             e.preventDefault();
+            
+            showReportLoadingState();
             
             const form = e.target;
             const data = new FormData(form);
@@ -602,6 +666,28 @@
 
             for (const [key, value] of data.entries()) {
                 expenseData[key] = value;
+            }
+
+            showReportLoadingState();
+            
+            const logBody = document.getElementById('expense-log-body');
+            const emptyMessage = document.getElementById('empty-expense-log');
+            if (emptyMessage) {
+                emptyMessage.classList.add('hidden');
+            }
+            
+            if (logBody) {
+                // Prepend a beautiful skeleton log row
+                const rowSk = document.createElement('tr');
+                rowSk.className = 'animate-pulse border-b border-outline-variant/10';
+                rowSk.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="h-4 w-16 bg-on-surface/10 rounded"></div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="h-4 w-20 bg-on-surface/10 rounded"></div></td>
+                    <td class="px-6 py-4"><div class="h-4 w-32 bg-on-surface/10 rounded"></div></td>
+                    <td class="px-6 py-4 whitespace-nowrap"><div class="h-4 w-12 bg-on-surface/10 rounded ml-auto"></div></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center"><div class="h-6 w-6 bg-on-surface/10 rounded-full mx-auto"></div></td>
+                `;
+                logBody.insertBefore(rowSk, logBody.firstChild);
             }
 
             const result = await apiFetch('/api/expense', 'POST', expenseData);
