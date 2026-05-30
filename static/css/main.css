@@ -346,9 +346,6 @@
   .h-\[30px\] {
     height: 30px;
   }
-  .h-\[46px\] {
-    height: 46px;
-  }
   .h-\[154px\] {
     height: 154px;
   }
@@ -488,6 +485,9 @@
   .justify-end {
     justify-content: flex-end;
   }
+  .gap-1 {
+    gap: calc(var(--spacing) * 1);
+  }
   .gap-1\.5 {
     gap: calc(var(--spacing) * 1.5);
   }
@@ -511,13 +511,6 @@
   }
   .gap-6 {
     gap: calc(var(--spacing) * 6);
-  }
-  .space-y-4 {
-    :where(& > :not(:last-child)) {
-      --tw-space-y-reverse: 0;
-      margin-block-start: calc(calc(var(--spacing) * 4) * var(--tw-space-y-reverse));
-      margin-block-end: calc(calc(var(--spacing) * 4) * calc(1 - var(--tw-space-y-reverse)));
-    }
   }
   .space-y-6 {
     :where(& > :not(:last-child)) {
@@ -639,12 +632,6 @@
       border-color: color-mix(in oklab, var(--color-outline-variant) 20%, transparent);
     }
   }
-  .border-outline-variant\/25 {
-    border-color: var(--color-outline-variant);
-    @supports (color: color-mix(in lab, red, red)) {
-      border-color: color-mix(in oklab, var(--color-outline-variant) 25%, transparent);
-    }
-  }
   .border-outline-variant\/30 {
     border-color: var(--color-outline-variant);
     @supports (color: color-mix(in lab, red, red)) {
@@ -662,6 +649,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       border-color: color-mix(in oklab, var(--color-secondary) 20%, transparent);
     }
+  }
+  .border-transparent {
+    border-color: transparent;
   }
   .bg-black\/60 {
     background-color: color-mix(in srgb, #000 60%, transparent);
@@ -696,12 +686,6 @@
   .bg-secondary-container {
     background-color: var(--color-secondary-container);
   }
-  .bg-secondary-container\/20 {
-    background-color: var(--color-secondary-container);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-secondary-container) 20%, transparent);
-    }
-  }
   .bg-surface-container-high {
     background-color: var(--color-surface-container-high);
   }
@@ -710,12 +694,6 @@
   }
   .bg-surface-container-low {
     background-color: var(--color-surface-container-low);
-  }
-  .bg-surface-container-low\/20 {
-    background-color: var(--color-surface-container-low);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-surface-container-low) 20%, transparent);
-    }
   }
   .bg-surface-container-lowest {
     background-color: var(--color-surface-container-lowest);
@@ -937,9 +915,6 @@
   .opacity-60 {
     opacity: 60%;
   }
-  .opacity-65 {
-    opacity: 65%;
-  }
   .opacity-100 {
     opacity: 100%;
   }
@@ -1127,6 +1102,11 @@
       border-color: var(--color-primary);
     }
   }
+  .focus\:bg-surface-container-high {
+    &:focus {
+      background-color: var(--color-surface-container-high);
+    }
+  }
   .focus\:ring-1 {
     &:focus {
       --tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor);
@@ -1293,6 +1273,66 @@
 }
 .ghost-pulse {
   animation: ghostPulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fadeIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+.animate-fade-out {
+  animation: fadeOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+@keyframes chipDelete {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    max-width: 250px;
+    height: 32px;
+  }
+  35% {
+    opacity: 0.9;
+    max-width: 32px;
+    padding-left: 0;
+    padding-right: 0;
+    transform: scale(1);
+    height: 32px;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0);
+    max-width: 0;
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+.animate-chip-delete {
+  animation: chipDelete 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  pointer-events: none;
 }
 @property --tw-translate-x {
   syntax: "*";

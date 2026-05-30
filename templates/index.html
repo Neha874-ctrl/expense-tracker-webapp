@@ -565,12 +565,15 @@
                 
                 const targetChip = document.querySelector(`#category-list div[data-category="${catName}"]`);
                 const targetCard = document.querySelector(`#report-summary div[data-category="${catName}"]`);
-                if (targetChip) targetChip.classList.add('animate-fade-out');
+                if (targetChip) {
+                    targetChip.classList.remove('animate-fade-in');
+                    targetChip.classList.add('animate-chip-delete');
+                }
                 if (targetCard) targetCard.classList.add('animate-fade-out');
                 
                 const apiPromise = apiFetch('/api/categories', 'POST', { action: 'remove', category: catName });
                 
-                await new Promise(resolve => setTimeout(resolve, 220));
+                await new Promise(resolve => setTimeout(resolve, 450));
                 
                 const result = await apiPromise;
                 if (result) {

@@ -154,3 +154,72 @@
 .ghost-pulse {
   animation: ghostPulse 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* Custom premium entrance fade-in transition */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* Custom premium exit fade-out transition */
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+.animate-fade-out {
+  animation: fadeOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+  pointer-events: none;
+}
+
+/* Custom premium chip deletion transition: collapses to circle, then shrinks to 0 */
+@keyframes chipDelete {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    max-width: 250px;
+    height: 32px;
+  }
+  35% {
+    opacity: 0.9;
+    max-width: 32px;
+    padding-left: 0;
+    padding-right: 0;
+    transform: scale(1);
+    height: 32px;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0);
+    max-width: 0;
+    height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+
+.animate-chip-delete {
+  animation: chipDelete 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  pointer-events: none;
+}
