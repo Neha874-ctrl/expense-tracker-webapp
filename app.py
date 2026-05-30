@@ -131,18 +131,19 @@ def execute_sql_batch_remote(statements_input):
         elif isinstance(item, tuple) or isinstance(item, list):
             q = item[0]
             args = item[1] if len(item) > 1 else []
-            # Map Python types to SQL-friendly types in arguments
+            # Map Python types to simple JSON-serializable types in arguments
             mapped_args = []
             for arg in args:
-                if isinstance(arg, float) or isinstance(arg, int):
-                    mapped_args.append({"type": "float" if isinstance(arg, float) else "integer", "value": str(arg)})
-                elif arg is None:
-                    mapped_args.append({"type": "null", "value": None})
+                if isinstance(arg, bool):
+                    mapped_args.append(1 if arg else 0)
+                elif isinstance(arg, (int, float, str)) or arg is None:
+                    mapped_args.append(arg)
                 else:
-                    mapped_args.append({"type": "text", "value": str(arg)})
+                    mapped_args.append(str(arg))
             statements.append({"q": q, "params": mapped_args})
         else:
             statements.append({"q": item})
+
 
     try:
         response = http_session.post(f"{API_URL}", json={"statements": statements}, timeout=10)
