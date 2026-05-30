@@ -44,43 +44,47 @@ app.secret_key = os.urandom(24).hex()
 # 2. Turso HTTP API Setup
 # Convert the libsql URL (e.g., libsql://...) to the HTTPS endpoint
 API_URL = DATABASE_URL.replace("libsql://", "https://") if DATABASE_URL else ""
+http_session = requests.Session()
+if DATABASE_AUTH_TOKEN:
+    http_session.headers.update({
+        "Authorization": f"Bearer {DATABASE_AUTH_TOKEN}",
+        "Content-Type": "application/json"
+    })
 
 def execute_sql(sql_query, params=None):
     """Executes a single SQL query via the Turso HTTP API using requests."""
-    
-    statements = [{"q": sql_query}]
+    return execute_sql_batch([sql_query])[0]
+
+def execute_sql_batch(sql_queries):
+    """Executes multiple SQL queries in a single HTTP request."""
+    statements = [{"q": q} for q in sql_queries]
 
     try:
-        headers = {
-            "Authorization": f"Bearer {DATABASE_AUTH_TOKEN}",
-            "Content-Type": "application/json"
-        }
-        
         # Send the query list to the Turso API endpoint
-        response = requests.post(f"{API_URL}", headers=headers, json={"statements": statements}, timeout=10)
+        response = http_session.post(f"{API_URL}", json={"statements": statements}, timeout=10)
         response.raise_for_status() # Raises an HTTPError for bad responses (4xx or 5xx)
         
         data = response.json()
         
-        if not data or not isinstance(data, list) or 'results' not in data[0]:
-            # Check for errors in the Turso response structure
-            if 'error' in data[0]:
-                 raise RuntimeError(f"Turso SQL Error: {data[0]['error']}")
+        if not data or not isinstance(data, list):
+            return [{"rows": [], "rows_affected": 0, "columns": []}] * len(sql_queries)
+
+        results = []
+        for item in data:
+            if 'error' in item:
+                 raise RuntimeError(f"Turso SQL Error: {item['error']}")
             
-            # Simplified result for DDL/DML operations where result might be minimal
-            return {"rows": [], "rows_affected": data[0].get('rows_affected', 0), "columns": []}
+            result = item.get('results', {})
+            if 'error' in result:
+                raise RuntimeError(f"Turso SQL Error: {result['error']}")
 
-        result = data[0]['results'] # Access the actual results array
-
-        if 'error' in result:
-            raise RuntimeError(f"Turso SQL Error: {result['error']}")
-
-        # Simplified result object for the application logic to consume
-        return {
-            "rows": result.get('rows', []),
-            "rows_affected": result.get('rows_affected', 0),
-            "columns": result.get('cols', [])
-        }
+            results.append({
+                "rows": result.get('rows', []),
+                "rows_affected": result.get('rows_affected', item.get('rows_affected', 0)),
+                "columns": result.get('cols', [])
+            })
+            
+        return results
         
     except requests.exceptions.RequestException as e:
         print(f"HTTP Request Error to Turso: {e}")
@@ -124,19 +128,24 @@ def initialize_db():
 def load_app_data():
     """Loads all application state from the database into a dictionary."""
     
+    queries = [
+        "SELECT name FROM categories ORDER BY name ASC",
+        "SELECT category, limit_amount FROM budget",
+        "SELECT id, category, amount, date, description FROM expenses ORDER BY date DESC"
+    ]
+    
+    results = execute_sql_batch(queries)
+    
     # Load Categories
-    categories_res = execute_sql("SELECT name FROM categories ORDER BY name ASC")
-    categories = [row[0] for row in categories_res['rows']]
+    categories = [row[0] for row in results[0]['rows']]
     
     # Load Budget
-    budget_res = execute_sql("SELECT category, limit_amount FROM budget")
-    budget = {row[0]: row[1] for row in budget_res['rows']}
+    budget = {row[0]: row[1] for row in results[1]['rows']}
     
     # Load Expenses (Ordered by date, newest first)
-    expenses_res = execute_sql("SELECT id, category, amount, date, description FROM expenses ORDER BY date DESC")
     expenses = [
         {"id": row[0], "category": row[1], "amount": row[2], "date": row[3], "description": row[4]} 
-        for row in expenses_res['rows']
+        for row in results[2]['rows']
     ]
     
     return {
@@ -187,16 +196,16 @@ def handle_categories():
 
         if not category_name:
             return jsonify({"message": "Category name cannot be empty."}), 400
-
-        app_data = load_app_data() # Reload state
         
         if action == 'add':
             if category_name in app_data['categories']:
                 return jsonify({"message": f"Category '{category_name}' already exists."}), 409
             
             # --- PERSISTENCE: Insert new category into DB ---
-            execute_sql(f"INSERT INTO categories (name) VALUES ('{category_name}')")
-            execute_sql(f"INSERT INTO budget (category, limit_amount) VALUES ('{category_name}', 0.0)")
+            execute_sql_batch([
+                f"INSERT INTO categories (name) VALUES ('{category_name}')",
+                f"INSERT INTO budget (category, limit_amount) VALUES ('{category_name}', 0.0)"
+            ])
             
             app_data = load_app_data() # Refresh global state
             return jsonify({"message": f"Category '{category_name}' added.", "data": app_data})
@@ -206,9 +215,11 @@ def handle_categories():
                 return jsonify({"message": f"Category '{category_name}' not found."}), 404
             
             # --- PERSISTENCE: Delete from DB tables ---
-            execute_sql(f"DELETE FROM categories WHERE name = '{category_name}'")
-            execute_sql(f"DELETE FROM budget WHERE category = '{category_name}'")
-            execute_sql(f"DELETE FROM expenses WHERE category = '{category_name}'")
+            execute_sql_batch([
+                f"DELETE FROM categories WHERE name = '{category_name}'",
+                f"DELETE FROM budget WHERE category = '{category_name}'",
+                f"DELETE FROM expenses WHERE category = '{category_name}'"
+            ])
 
             app_data = load_app_data() # Refresh global state
             return jsonify({"message": f"Category '{category_name}' removed.", "data": app_data})
@@ -225,8 +236,6 @@ def set_budget():
     global app_data
     try:
         new_budget = request.get_json()
-        
-        app_data = load_app_data() # Reload state
         validated_budget = {}
         
         for cat in app_data['categories']:
@@ -241,8 +250,9 @@ def set_budget():
                 validated_budget[cat] = app_data['budget'].get(cat, 0.0)
 
         # --- PERSISTENCE: Update/Insert all budgets into DB ---
-        for cat, amount in validated_budget.items():
-            execute_sql(f"REPLACE INTO budget (category, limit_amount) VALUES ('{cat}', {amount})")
+        queries = [f"REPLACE INTO budget (category, limit_amount) VALUES ('{cat}', {amount})" for cat, amount in validated_budget.items()]
+        if queries:
+            execute_sql_batch(queries)
 
         app_data = load_app_data() # Refresh global state
         return jsonify({"message": "Budget updated successfully!", "data": app_data})
@@ -261,8 +271,6 @@ def add_expense():
         amount_str = req_data.get('amount')
         description = req_data.get('description', '').strip().replace("'", "''") # Basic SQL escaping
         expense_id = str(uuid.uuid4())
-
-        app_data = load_app_data() # Reload state
         
         if category not in app_data['categories']:
             return jsonify({"message": f"Category '{category}' is not a recognized budget category."}), 400
