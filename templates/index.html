@@ -163,6 +163,8 @@
                         </div>
                     </div>
                     
+                    <div id="donut-chart-section" class="flex-shrink-0"></div>
+
                     <div id="report-summary" class="grid grid-cols-1 md:grid-cols-2 gap-4 overflow-y-auto p-1 flex-1 min-h-0 scrollbar-thin">
                         <!-- Category summaries will be injected here -->
                     </div>
@@ -499,6 +501,156 @@
             });
         }
 
+        // ─── Donut chart helper ────────────────────────────────────────────────
+        function buildDonutChart(report, totalSpent) {
+            const section = document.getElementById('donut-chart-section');
+            section.innerHTML = '';
+            if (!report || report.length === 0 || totalSpent <= 0) return;
+
+            // Olive-green harmonic palette for segments
+            const palette = [
+                'var(--md-sys-color-primary)',
+                'var(--md-sys-color-tertiary)',
+                'var(--md-sys-color-secondary)',
+                '#c6d68f', '#7aab8a', '#b0c77a', '#8faf6e', '#d4e4a0'
+            ];
+
+            const R = 52, cx = 64, cy = 64;
+            const CIRC = 2 * Math.PI * R;
+            let cumulativeAngle = -Math.PI / 2;  // start from 12-o'clock
+
+            // Build SVG paths
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('viewBox', '0 0 128 128');
+            svg.style.cssText = 'width:128px;height:128px;flex-shrink:0;overflow:visible;';
+
+            // Background ring
+            const bgRing = document.createElementNS(svgNS, 'circle');
+            bgRing.setAttribute('cx', cx); bgRing.setAttribute('cy', cy);
+            bgRing.setAttribute('r', R);
+            bgRing.setAttribute('fill', 'none');
+            bgRing.setAttribute('stroke', 'var(--md-sys-color-surface-variant)');
+            bgRing.setAttribute('stroke-width', '16');
+            svg.appendChild(bgRing);
+
+            const segments = [];
+            report.forEach((item, i) => {
+                const ratio = totalSpent > 0 ? (item.spent / totalSpent) : 0;
+                const angle = ratio * 2 * Math.PI;
+                const x1 = cx + R * Math.cos(cumulativeAngle);
+                const y1 = cy + R * Math.sin(cumulativeAngle);
+                cumulativeAngle += angle;
+                const x2 = cx + R * Math.cos(cumulativeAngle);
+                const y2 = cy + R * Math.sin(cumulativeAngle);
+                const largeArc = angle > Math.PI ? 1 : 0;
+
+                if (ratio < 0.001) return;
+
+                const path = document.createElementNS(svgNS, 'path');
+                const d = `M ${cx} ${cy} L ${x1.toFixed(3)} ${y1.toFixed(3)} A ${R} ${R} 0 ${largeArc} 1 ${x2.toFixed(3)} ${y2.toFixed(3)} Z`;
+                path.setAttribute('d', d);
+                path.setAttribute('fill', palette[i % palette.length]);
+                path.setAttribute('opacity', '0.9');
+                path.style.cssText = 'cursor:pointer;transition:opacity 150ms,transform 150ms;transform-origin:64px 64px;';
+
+                // Hover: highlight and show tooltip
+                path.addEventListener('mouseenter', () => {
+                    segments.forEach(s => s !== path && (s.style.opacity = '0.35'));
+                    path.style.opacity = '1';
+                    path.style.transform = 'scale(1.04)';
+                    tooltip.style.opacity = '1';
+                    tooltipCat.textContent = item.category;
+                    tooltipVal.textContent = `₹${item.spent.toFixed(2)} · ${(ratio * 100).toFixed(1)}%`;
+                });
+                path.addEventListener('mouseleave', () => {
+                    segments.forEach(s => { s.style.opacity = '0.9'; s.style.transform = 'scale(1)'; });
+                    tooltip.style.opacity = '0';
+                });
+
+                segments.push(path);
+                svg.appendChild(path);
+            });
+
+            // Inner donut hole
+            const hole = document.createElementNS(svgNS, 'circle');
+            hole.setAttribute('cx', cx); hole.setAttribute('cy', cy);
+            hole.setAttribute('r', '32');
+            hole.setAttribute('fill', 'var(--md-sys-color-surface-container-low)');
+            svg.appendChild(hole);
+
+            // Centre label
+            const centerLabel = document.createElementNS(svgNS, 'text');
+            centerLabel.setAttribute('x', cx); centerLabel.setAttribute('y', cy - 4);
+            centerLabel.setAttribute('text-anchor', 'middle');
+            centerLabel.setAttribute('dominant-baseline', 'middle');
+            centerLabel.setAttribute('font-size', '9');
+            centerLabel.setAttribute('font-weight', '700');
+            centerLabel.setAttribute('fill', 'var(--md-sys-color-on-surface)');
+            centerLabel.textContent = '₹' + (totalSpent >= 1000 ? (totalSpent/1000).toFixed(1)+'k' : totalSpent.toFixed(0));
+            svg.appendChild(centerLabel);
+
+            const centerSub = document.createElementNS(svgNS, 'text');
+            centerSub.setAttribute('x', cx); centerSub.setAttribute('y', cy + 9);
+            centerSub.setAttribute('text-anchor', 'middle');
+            centerSub.setAttribute('dominant-baseline', 'middle');
+            centerSub.setAttribute('font-size', '6');
+            centerSub.setAttribute('fill', 'var(--md-sys-color-on-surface-variant)');
+            centerSub.textContent = 'Spent';
+            svg.appendChild(centerSub);
+
+            // Legend + tooltip wrapper
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'display:flex;align-items:center;gap:16px;padding:12px 14px;background:var(--md-sys-color-surface-container-lowest);border:1px solid var(--md-sys-color-outline-variant);border-radius:20px;margin-bottom:12px;position:relative;';
+
+            // Tooltip card
+            const tooltip = document.createElement('div');
+            tooltip.style.cssText = 'position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);background:var(--md-sys-color-inverse-surface);border-radius:10px;padding:6px 12px;pointer-events:none;opacity:0;transition:opacity 150ms;white-space:nowrap;z-index:50;display:flex;flex-direction:column;gap:1px;';
+            const tooltipCat = document.createElement('span');
+            tooltipCat.style.cssText = 'font-size:0.7rem;font-weight:700;color:var(--md-sys-color-primary);';
+            const tooltipVal = document.createElement('span');
+            tooltipVal.style.cssText = 'font-size:0.7rem;font-weight:500;color:var(--md-sys-color-inverse-on-surface);';
+            tooltip.appendChild(tooltipCat);
+            tooltip.appendChild(tooltipVal);
+
+            // Legend list
+            const legend = document.createElement('div');
+            legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px 14px;flex:1;';
+            report.forEach((item, i) => {
+                if (item.spent <= 0) return;
+                const dot = document.createElement('div');
+                dot.style.cssText = `display:flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:600;color:var(--md-sys-color-on-surface-variant);`;
+                dot.innerHTML = `<span style="width:8px;height:8px;border-radius:50%;background:${palette[i % palette.length]};flex-shrink:0;"></span>${escapeHtml(item.category)}`;
+                legend.appendChild(dot);
+            });
+
+            wrapper.appendChild(svg);
+            wrapper.appendChild(legend);
+            wrapper.appendChild(tooltip);
+            section.appendChild(wrapper);
+        }
+
+        // ─── Circular progress ring helper ───────────────────────────────────────
+        function buildRing(percentage, isOver) {
+            const R = 20, cx = 24, cy = 24;
+            const CIRC = 2 * Math.PI * R;
+            const dash = (Math.min(percentage, 100) / 100) * CIRC;
+            const color = isOver ? 'var(--md-sys-color-error)' : 'var(--md-sys-color-primary)';
+            return `
+                <svg viewBox="0 0 48 48" width="52" height="52" style="flex-shrink:0;transform:rotate(-90deg);">
+                    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none"
+                        stroke="var(--md-sys-color-surface-variant)" stroke-width="5"/>
+                    <circle cx="${cx}" cy="${cy}" r="${R}" fill="none"
+                        stroke="${color}" stroke-width="5"
+                        stroke-linecap="round"
+                        stroke-dasharray="${CIRC}"
+                        stroke-dashoffset="${CIRC}"
+                        style="transition: stroke-dashoffset 800ms cubic-bezier(0.34,1.2,0.64,1);"
+                        data-dash-target="${dash.toFixed(3)}"/>
+                </svg>
+            `;
+        }
+
         function renderReport(reportData) {
             const summaryDiv = document.getElementById('report-summary');
             summaryDiv.innerHTML = '';
@@ -514,55 +666,67 @@
                 </div>
             `;
 
+            // Build donut chart
+            buildDonutChart(reportData.report, reportData.total_spent);
+
             reportData.report.forEach(item => {
                 const isItemOverBudget = item.difference > 0;
-                const progressBarColor = isItemOverBudget ? 'bg-error' : 'bg-primary';
                 const containerBg = isItemOverBudget ? 'bg-error-container/10 border-error/20' : 'bg-surface-container-lowest border-outline-variant/30';
-                
                 const spentPercentage = item.budget > 0 ? Math.min(100, (item.spent / item.budget) * 100) : (item.spent > 0 ? 100 : 0);
                 
                 const card = document.createElement('div');
-                card.className = `animate-fade-in p-5 rounded-[24px] border shadow-sm transition duration-200 hover:shadow-md flex flex-col gap-3.5 ${containerBg}`;
+                card.className = `animate-fade-in p-4 rounded-[24px] border shadow-sm transition duration-200 hover:shadow-md flex flex-col gap-3 ${containerBg}`;
                 card.dataset.category = item.category;
                 
                 const statusText = isItemOverBudget 
-                    ? `Over Budget by ₹${Math.abs(item.difference).toFixed(2)}` 
-                    : item.difference === 0 ? "Within Budget" : `₹${Math.abs(item.difference).toFixed(2)} Remaining`;
-                const statusColor = isItemOverBudget ? 'text-error' : 'text-primary';
+                    ? `Over by ₹${Math.abs(item.difference).toFixed(2)}` 
+                    : item.difference === 0 ? 'Within Budget' : `₹${Math.abs(item.difference).toFixed(2)} left`;
+                const statusColor = isItemOverBudget ? 'color:var(--md-sys-color-error)' : 'color:var(--md-sys-color-primary)';
+                const badgeBg = isItemOverBudget
+                    ? 'background:var(--md-sys-color-error-container);color:var(--md-sys-color-on-error-container);'
+                    : 'background:var(--md-sys-color-primary-container);color:var(--md-sys-color-on-primary-container);';
 
                 card.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <h3 class="category-title font-bold text-base text-on-surface"></h3>
-                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${isItemOverBudget ? 'bg-error-container text-on-error-container' : 'bg-primary-container text-on-primary-container'}">${isItemOverBudget ? 'Alert' : 'On Track'}</span>
-                    </div>
-                    
-                    <!-- Progress Bar -->
-                    <div class="h-2 w-full rounded-full bg-surface-variant overflow-hidden">
-                        <div class="h-full rounded-full ${progressBarColor} transition-all duration-500" style="width: ${spentPercentage}%;"></div>
-                    </div>
-                    
-                    <div class="flex flex-col gap-1.5 text-xs text-on-surface-variant font-medium">
-                        <div class="flex items-center gap-1">
-                            <span class="shrink-0">Limit: ₹</span>
-                            <input type="number" step="0.01" min="0" 
-                                   class="w-24 bg-transparent text-xs font-bold text-on-surface focus:bg-surface-container-high focus:outline-none border-b border-transparent focus:border-primary px-1 rounded transition duration-150"
-                                   value="${item.budget.toFixed(2)}"
-                                   onchange="handleInlineBudgetChange('${escapeHtml(item.category)}', this.value)"
-                                   onkeydown="if(event.key === 'Enter') this.blur();">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <!-- Circular ring -->
+                        <div class="ring-container">${buildRing(spentPercentage, isItemOverBudget)}</div>
+
+                        <!-- Text content -->
+                        <div style="flex:1;min-width:0;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;">
+                                <h3 class="category-title" style="font-weight:700;font-size:0.875rem;color:var(--md-sys-color-on-surface);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></h3>
+                                <span style="font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:0.06em;flex-shrink:0;${badgeBg}">${isItemOverBudget ? 'Alert' : 'On Track'}</span>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:2px;">
+                                <div style="display:flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--md-sys-color-on-surface-variant);">
+                                    <span style="flex-shrink:0;">Limit: ₹</span>
+                                    <input type="number" step="0.01" min="0"
+                                           style="width:5.5rem;background:transparent;font-size:0.72rem;font-weight:700;color:var(--md-sys-color-on-surface);border:none;border-bottom:1px solid transparent;outline:none;padding:0 2px;border-radius:3px;transition:border-color 150ms,background 150ms;"
+                                           value="${item.budget.toFixed(2)}"
+                                           onchange="handleInlineBudgetChange('${escapeHtml(item.category)}', this.value)"
+                                           onkeydown="if(event.key==='Enter')this.blur();"
+                                           onfocus="this.style.borderBottomColor='var(--md-sys-color-primary)';this.style.background='var(--md-sys-color-surface-container-high)';"
+                                           onblur="this.style.borderBottomColor='transparent';this.style.background='transparent';">
+                                </div>
+                                <div style="font-size:0.72rem;color:var(--md-sys-color-on-surface-variant);">
+                                    Spent: <strong style="color:var(--md-sys-color-on-surface);">₹${item.spent.toFixed(2)}</strong>
+                                </div>
+                                <div style="font-size:0.7rem;font-weight:700;margin-top:2px;${statusColor};">${statusText}</div>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-1">
-                            <span class="shrink-0">Spent: ₹</span>
-                            <span class="font-bold text-on-surface">${item.spent.toFixed(2)}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="flex justify-between text-sm font-semibold border-t border-outline-variant/20 pt-2.5 mt-0.5">
-                        <span class="text-on-surface-variant text-xs">Status:</span>
-                        <span class="${statusColor} text-xs font-bold">${statusText}</span>
                     </div>
                 `;
                 card.querySelector('.category-title').textContent = item.category;
                 summaryDiv.appendChild(card);
+            });
+
+            // Animate rings after paint
+            requestAnimationFrame(() => {
+                document.querySelectorAll('[data-dash-target]').forEach(circle => {
+                    const target = parseFloat(circle.dataset.dashTarget);
+                    const full = 2 * Math.PI * 20;
+                    circle.style.strokeDashoffset = (full - target).toFixed(3);
+                });
             });
         }
 
