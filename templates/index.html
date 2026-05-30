@@ -297,123 +297,71 @@
         // Initialize theme icon state
         updateThemeIcon(currentTheme);
 
-        // Snackbar notification helper
+        // Snackbar notification helper — MD3 style
         function showAlert(message, type = 'success') {
             const alertBox = document.getElementById('alert-box');
-            
-            const configs = {
-                success: {
-                    accent:     'var(--md-sys-color-primary)',
-                    iconBg:     'color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent)',
-                    iconColor:  'var(--md-sys-color-primary)',
-                    icon:       'check_circle',
-                    label:      'Success'
-                },
-                error: {
-                    accent:     'var(--md-sys-color-error)',
-                    iconBg:     'color-mix(in srgb, var(--md-sys-color-error) 15%, transparent)',
-                    iconColor:  'var(--md-sys-color-error)',
-                    icon:       'error',
-                    label:      'Error'
-                },
-                warning: {
-                    accent:     'var(--md-sys-color-secondary)',
-                    iconBg:     'color-mix(in srgb, var(--md-sys-color-secondary) 15%, transparent)',
-                    iconColor:  'var(--md-sys-color-secondary)',
-                    icon:       'warning',
-                    label:      'Warning'
-                },
+
+            const icons = {
+                success: 'check_circle',
+                error:   'error',
+                warning: 'warning',
+                info:    'info'
             };
-            const c = configs[type] || configs.success;
+            const iconColors = {
+                success: 'var(--md-sys-color-primary)',
+                error:   'var(--md-sys-color-error)',
+                warning: 'var(--md-sys-color-secondary)',
+                info:    'var(--md-sys-color-on-surface-variant)'
+            };
+            const icon = icons[type] || icons.info;
+            const iconColor = iconColors[type] || iconColors.info;
 
             const toast = document.createElement('div');
             toast.style.cssText = `
-                display: flex;
+                display: inline-flex;
                 align-items: center;
-                gap: 12px;
-                padding: 14px 18px 14px 0;
-                border-radius: 16px;
-                border: 1px solid color-mix(in srgb, ${c.accent} 20%, transparent);
-                background: var(--md-sys-color-surface-container-high);
-                box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12);
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
-                overflow: hidden;
-                position: relative;
-                pointer-events: auto;
+                gap: 10px;
+                padding: 12px 20px;
+                border-radius: 12px;
+                background: var(--md-sys-color-inverse-surface);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.2);
                 opacity: 0;
-                transform: translateY(12px) scale(0.96);
-                transition: opacity 250ms cubic-bezier(0.34,1.56,0.64,1), transform 250ms cubic-bezier(0.34,1.56,0.64,1);
+                transform: translateY(10px);
+                transition: opacity 220ms ease-out, transform 220ms cubic-bezier(0.34,1.56,0.64,1);
+                pointer-events: auto;
+                white-space: nowrap;
             `;
 
-            // Left accent bar
-            const accentBar = document.createElement('div');
-            accentBar.style.cssText = `
-                width: 4px;
-                align-self: stretch;
-                border-radius: 0 3px 3px 0;
-                flex-shrink: 0;
-                background: ${c.accent};
-            `;
-
-            // Icon circle
-            const iconCircle = document.createElement('div');
-            iconCircle.style.cssText = `
-                width: 36px;
-                height: 36px;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                flex-shrink: 0;
-                background: ${c.iconBg};
-            `;
             const iconEl = document.createElement('span');
             iconEl.className = 'material-symbols-outlined';
-            iconEl.style.cssText = `font-size: 1.1rem; color: ${c.iconColor};`;
-            iconEl.textContent = c.icon;
-            iconCircle.appendChild(iconEl);
+            iconEl.style.cssText = `font-size: 1.1rem; color: ${iconColor}; flex-shrink: 0;`;
+            iconEl.textContent = icon;
 
-            // Text block
-            const textBlock = document.createElement('div');
-            textBlock.style.cssText = 'display: flex; flex-direction: column; gap: 2px; flex: 1;';
-
-            const labelEl = document.createElement('p');
-            labelEl.style.cssText = `font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: ${c.iconColor};`;
-            labelEl.textContent = c.label;
-
-            const msgEl = document.createElement('p');
-            msgEl.style.cssText = `font-size: 0.8rem; font-weight: 500; color: var(--md-sys-color-on-surface); line-height: 1.4;`;
+            const msgEl = document.createElement('span');
+            msgEl.style.cssText = `font-size: 0.8125rem; font-weight: 500; color: var(--md-sys-color-inverse-on-surface); letter-spacing: 0.01em;`;
             msgEl.textContent = message;
 
-            textBlock.appendChild(labelEl);
-            textBlock.appendChild(msgEl);
+            toast.appendChild(iconEl);
+            toast.appendChild(msgEl);
 
-            toast.appendChild(accentBar);
-            toast.appendChild(iconCircle);
-            toast.appendChild(textBlock);
-
-            // Clear any existing toast and show new one
             alertBox.innerHTML = '';
             alertBox.appendChild(toast);
             alertBox.style.pointerEvents = 'auto';
 
-            // Trigger entrance animation
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    toast.style.opacity = '1';
-                    toast.style.transform = 'translateY(0) scale(1)';
-                });
-            });
+            // Entrance
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            }));
 
             // Auto-dismiss after 3.5s
             setTimeout(() => {
                 toast.style.opacity = '0';
-                toast.style.transform = 'translateY(8px) scale(0.97)';
+                toast.style.transform = 'translateY(6px)';
                 setTimeout(() => {
                     alertBox.innerHTML = '';
                     alertBox.style.pointerEvents = 'none';
-                }, 280);
+                }, 250);
             }, 3500);
         }
 

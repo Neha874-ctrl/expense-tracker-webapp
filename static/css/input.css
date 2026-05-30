@@ -77,6 +77,10 @@
   --md-sys-color-surface-container: #1f201b;
   --md-sys-color-surface-container-high: #292b24;
   --md-sys-color-surface-container-highest: #34362f;
+
+  /* Inverse tokens — used for snackbars (light chip on dark bg) */
+  --md-sys-color-inverse-surface: #e3e3dc;
+  --md-sys-color-inverse-on-surface: #2e2f28;
 }
 
 [data-theme="light"] {
@@ -117,6 +121,10 @@
   --md-sys-color-surface-container: #eff0e7;
   --md-sys-color-surface-container-high: #e9eae1;
   --md-sys-color-surface-container-highest: #e3e4db;
+
+  /* Inverse tokens — used for snackbars (dark chip on light bg) */
+  --md-sys-color-inverse-surface: #30312a;
+  --md-sys-color-inverse-on-surface: #f2f3ea;
 }
 
 /* Scrollbar Customization matching MD3 theme */
