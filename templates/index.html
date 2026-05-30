@@ -65,8 +65,8 @@
 
     <main class="flex-1 min-h-0 max-w-7xl w-full mx-auto px-4 md:px-8 py-6 overflow-hidden">
         <!-- Global Alert Message Box (Snackbar Style) -->
-        <div id="alert-box" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-0 scale-95 pointer-events-none">
-            <!-- Alert message will be inserted here -->
+        <div id="alert-box" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] pointer-events-none" style="min-width: 300px; max-width: 420px; width: max-content;">
+            <!-- Toast will be injected here -->
         </div>
 
         <!-- M3 Alert Dialog (Deletion confirmation) -->
@@ -300,39 +300,121 @@
         // Snackbar notification helper
         function showAlert(message, type = 'success') {
             const alertBox = document.getElementById('alert-box');
-            let bgColor, icon;
             
-            switch (type) {
-                case 'success':
-                    bgColor = 'bg-primary-container text-on-primary-container border-primary/20';
-                    icon = 'check_circle';
-                    break;
-                case 'error':
-                    bgColor = 'bg-error-container text-on-error-container border-error/20';
-                    icon = 'error';
-                    break;
-                case 'warning':
-                    bgColor = 'bg-secondary-container text-on-secondary-container border-secondary/20';
-                    icon = 'warning';
-                    break;
-                default:
-                    bgColor = 'bg-surface-container-highest text-on-surface';
-                    icon = 'info';
-            }
+            const configs = {
+                success: {
+                    accent:     'var(--md-sys-color-primary)',
+                    iconBg:     'color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent)',
+                    iconColor:  'var(--md-sys-color-primary)',
+                    icon:       'check_circle',
+                    label:      'Success'
+                },
+                error: {
+                    accent:     'var(--md-sys-color-error)',
+                    iconBg:     'color-mix(in srgb, var(--md-sys-color-error) 15%, transparent)',
+                    iconColor:  'var(--md-sys-color-error)',
+                    icon:       'error',
+                    label:      'Error'
+                },
+                warning: {
+                    accent:     'var(--md-sys-color-secondary)',
+                    iconBg:     'color-mix(in srgb, var(--md-sys-color-secondary) 15%, transparent)',
+                    iconColor:  'var(--md-sys-color-secondary)',
+                    icon:       'warning',
+                    label:      'Warning'
+                },
+            };
+            const c = configs[type] || configs.success;
 
-            const alertHtml = `
-                <div class="px-5 py-3 rounded-full border shadow-lg flex items-center space-x-2.5 backdrop-blur-md">
-                    <span class="material-symbols-outlined text-lg">${icon}</span>
-                    <p class="text-xs font-semibold tracking-wide">${escapeHtml(message)}</p>
-                </div>
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 14px 18px 14px 0;
+                border-radius: 16px;
+                border: 1px solid color-mix(in srgb, ${c.accent} 20%, transparent);
+                background: var(--md-sys-color-surface-container-high);
+                box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.12);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                overflow: hidden;
+                position: relative;
+                pointer-events: auto;
+                opacity: 0;
+                transform: translateY(12px) scale(0.96);
+                transition: opacity 250ms cubic-bezier(0.34,1.56,0.64,1), transform 250ms cubic-bezier(0.34,1.56,0.64,1);
             `;
-            
-            alertBox.innerHTML = alertHtml;
-            alertBox.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-100 scale-100 pointer-events-auto ${bgColor}`;
 
+            // Left accent bar
+            const accentBar = document.createElement('div');
+            accentBar.style.cssText = `
+                width: 4px;
+                align-self: stretch;
+                border-radius: 0 3px 3px 0;
+                flex-shrink: 0;
+                background: ${c.accent};
+            `;
+
+            // Icon circle
+            const iconCircle = document.createElement('div');
+            iconCircle.style.cssText = `
+                width: 36px;
+                height: 36px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                background: ${c.iconBg};
+            `;
+            const iconEl = document.createElement('span');
+            iconEl.className = 'material-symbols-outlined';
+            iconEl.style.cssText = `font-size: 1.1rem; color: ${c.iconColor};`;
+            iconEl.textContent = c.icon;
+            iconCircle.appendChild(iconEl);
+
+            // Text block
+            const textBlock = document.createElement('div');
+            textBlock.style.cssText = 'display: flex; flex-direction: column; gap: 2px; flex: 1;';
+
+            const labelEl = document.createElement('p');
+            labelEl.style.cssText = `font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: ${c.iconColor};`;
+            labelEl.textContent = c.label;
+
+            const msgEl = document.createElement('p');
+            msgEl.style.cssText = `font-size: 0.8rem; font-weight: 500; color: var(--md-sys-color-on-surface); line-height: 1.4;`;
+            msgEl.textContent = message;
+
+            textBlock.appendChild(labelEl);
+            textBlock.appendChild(msgEl);
+
+            toast.appendChild(accentBar);
+            toast.appendChild(iconCircle);
+            toast.appendChild(textBlock);
+
+            // Clear any existing toast and show new one
+            alertBox.innerHTML = '';
+            alertBox.appendChild(toast);
+            alertBox.style.pointerEvents = 'auto';
+
+            // Trigger entrance animation
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    toast.style.opacity = '1';
+                    toast.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+
+            // Auto-dismiss after 3.5s
             setTimeout(() => {
-                alertBox.className = "fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-0 scale-95 pointer-events-none";
-            }, 3000);
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px) scale(0.97)';
+                setTimeout(() => {
+                    alertBox.innerHTML = '';
+                    alertBox.style.pointerEvents = 'none';
+                }, 280);
+            }, 3500);
         }
 
         // Helper for making API calls
