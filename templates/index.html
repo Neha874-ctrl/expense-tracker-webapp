@@ -567,17 +567,17 @@
                 
                 // 1. Chip skeleton
                 const chipSk = document.createElement('div');
-                chipSk.className = 'animate-pulse flex items-center bg-secondary-container/20 text-transparent pl-3.5 pr-2 py-1.5 rounded-full border border-outline-variant/10 shadow-sm w-20 h-[30px]';
+                chipSk.className = 'ghost-pulse flex items-center text-transparent pl-3.5 pr-2 py-1.5 rounded-full border border-outline-variant/10 shadow-sm w-20 h-[30px]';
                 categoryListDiv.appendChild(chipSk);
                 
                 // 2. Budget Input skeleton
                 const inputSk = document.createElement('div');
-                inputSk.className = 'animate-pulse relative mt-2 w-full border border-outline-variant/25 rounded-xl bg-surface-container-low/20 h-[46px]';
+                inputSk.className = 'ghost-pulse relative mt-2 w-full border border-outline-variant/25 rounded-xl h-[46px]';
                 budgetInputsDiv.appendChild(inputSk);
                 
                 // 3. Card skeleton
                 const cardSk = document.createElement('div');
-                cardSk.className = 'animate-pulse p-5 rounded-[24px] border border-outline-variant/10 bg-surface-container-lowest/30 shadow-sm flex flex-col gap-3.5 h-[154px] w-full';
+                cardSk.className = 'ghost-pulse p-5 rounded-[24px] border border-outline-variant/10 shadow-sm flex flex-col gap-3.5 h-[154px] w-full';
                 cardSk.innerHTML = `
                     <div class="flex justify-between items-start">
                         <div class="h-5 w-24 bg-on-surface/10 rounded"></div>
@@ -679,7 +679,7 @@
             if (logBody) {
                 // Prepend a beautiful skeleton log row
                 const rowSk = document.createElement('tr');
-                rowSk.className = 'animate-pulse border-b border-outline-variant/10';
+                rowSk.className = 'ghost-pulse border-b border-outline-variant/10';
                 rowSk.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap"><div class="h-4 w-16 bg-on-surface/10 rounded"></div></td>
                     <td class="px-6 py-4 whitespace-nowrap"><div class="h-4 w-20 bg-on-surface/10 rounded"></div></td>
