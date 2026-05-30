@@ -99,6 +99,17 @@
     </footer>
 
     <script>
+        // HTML Escaping Helper for XSS Mitigation
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // Theme Management
         let currentTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
@@ -180,7 +191,7 @@
             const alertHtml = `
                 <div class="px-5 py-3 rounded-full border shadow-lg flex items-center space-x-2.5 backdrop-blur-md">
                     <span class="material-symbols-outlined text-lg">${icon}</span>
-                    <p class="text-xs font-semibold tracking-wide">${message}</p>
+                    <p class="text-xs font-semibold tracking-wide">${escapeHtml(message)}</p>
                 </div>
             `;
             

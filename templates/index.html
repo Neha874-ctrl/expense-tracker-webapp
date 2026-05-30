@@ -209,6 +209,17 @@
     </main>
 
     <script>
+        // HTML Escaping Helper for XSS Mitigation
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
         // Theme Management
         let currentTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
@@ -261,7 +272,7 @@
             const alertHtml = `
                 <div class="px-5 py-3 rounded-full border shadow-lg flex items-center space-x-2.5 backdrop-blur-md">
                     <span class="material-symbols-outlined text-lg">${icon}</span>
-                    <p class="text-xs font-semibold tracking-wide">${message}</p>
+                    <p class="text-xs font-semibold tracking-wide">${escapeHtml(message)}</p>
                 </div>
             `;
             
@@ -330,11 +341,13 @@
                 const catElement = document.createElement('div');
                 catElement.className = 'flex items-center bg-secondary-container text-on-secondary-container text-xs font-medium pl-3.5 pr-2 py-1.5 rounded-full border border-outline-variant/30 shadow-sm';
                 catElement.innerHTML = `
-                    <span>${cat}</span>
-                    <button onclick="handleCategoryAttempt('remove', '${cat}')" class="ml-2 h-5 w-5 rounded-full text-on-secondary-container/70 hover:bg-on-secondary-container/10 hover:text-error transition duration-150 flex items-center justify-center">
+                    <span class="category-name-text"></span>
+                    <button class="remove-category-btn ml-2 h-5 w-5 rounded-full text-on-secondary-container/70 hover:bg-on-secondary-container/10 hover:text-error transition duration-150 flex items-center justify-center">
                         <span class="material-symbols-outlined text-sm font-bold">close</span>
                     </button>
                 `;
+                catElement.querySelector('.category-name-text').textContent = cat;
+                catElement.querySelector('.remove-category-btn').onclick = () => handleCategoryAttempt('remove', cat);
                 categoryListDiv.appendChild(catElement);
 
                 // 2. M3 Budget Text Field
@@ -343,10 +356,19 @@
                 const currentAmount = currentBudget[cat] || 0;
 
                 budgetDiv.innerHTML = `
-                    <input type="number" name="${cat}" id="budget-${cat}" value="${currentAmount.toFixed(2)}" step="0.01" min="0" required 
-                           class="peer w-full border border-outline rounded-xl px-4 py-3 bg-transparent text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all duration-200 text-sm">
-                    <label for="budget-${cat}" class="absolute left-3 -top-2 px-1 bg-surface-container-low text-xs text-on-surface-variant peer-focus:text-primary transition-all duration-200">${cat} (₹)</label>
+                    <input type="number" step="0.01" min="0" required 
+                           class="budget-input peer w-full border border-outline rounded-xl px-4 py-3 bg-transparent text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all duration-200 text-sm">
+                    <label class="budget-label absolute left-3 -top-2 px-1 bg-surface-container-low text-xs text-on-surface-variant peer-focus:text-primary transition-all duration-200"></label>
                 `;
+                const input = budgetDiv.querySelector('.budget-input');
+                input.name = cat;
+                input.id = `budget-${cat}`;
+                input.value = currentAmount.toFixed(2);
+
+                const label = budgetDiv.querySelector('.budget-label');
+                label.htmlFor = `budget-${cat}`;
+                label.textContent = `${cat} (₹)`;
+
                 budgetInputsDiv.appendChild(budgetDiv);
 
                 // 3. Select option
@@ -389,7 +411,7 @@
 
                 card.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <h3 class="font-bold text-base text-on-surface">${item.category}</h3>
+                        <h3 class="category-title font-bold text-base text-on-surface"></h3>
                         <span class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${isItemOverBudget ? 'bg-error-container text-on-error-container' : 'bg-primary-container text-on-primary-container'}">${isItemOverBudget ? 'Alert' : 'On Track'}</span>
                     </div>
                     
@@ -408,6 +430,7 @@
                         <span class="${statusColor} text-xs font-bold">${statusText}</span>
                     </div>
                 `;
+                card.querySelector('.category-title').textContent = item.category;
                 summaryDiv.appendChild(card);
             });
         }
@@ -416,6 +439,9 @@
             const logBody = document.getElementById('expense-log-body');
             const emptyMessage = document.getElementById('empty-expense-log');
             logBody.innerHTML = '';
+
+            // Store expenses globally for ID-based lookup in dialogs
+            window.lastExpensesLog = expenses;
 
             if (expenses.length === 0) {
                 emptyMessage.classList.remove('hidden');
@@ -432,18 +458,20 @@
 
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface font-medium">${exp.date}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary">${exp.category}</td>
-                    <td class="px-6 py-4 text-sm text-on-surface-variant font-medium">${exp.description || '—'}</td>
+                    <td class="category-cell px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary"></td>
+                    <td class="desc-cell px-6 py-4 text-sm text-on-surface-variant font-medium"></td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-on-surface text-right">${amountText}</td>
                     
                     <td class="px-6 py-4 whitespace-nowrap text-center">
-                        <button onclick="handleDeleteExpenseAttempt('${expenseId}', '${exp.description || exp.category}')" 
-                                class="h-8 w-8 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-full transition-all duration-150 flex items-center justify-center mx-auto" 
+                        <button class="delete-btn h-8 w-8 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-full transition-all duration-150 flex items-center justify-center mx-auto" 
                                 title="Remove Expense">
                             <span class="material-symbols-outlined text-lg">delete</span>
                         </button>
                     </td>
                 `;
+                row.querySelector('.category-cell').textContent = exp.category;
+                row.querySelector('.desc-cell').textContent = exp.description || '—';
+                row.querySelector('.delete-btn').onclick = () => handleDeleteExpenseAttempt(expenseId);
                 logBody.appendChild(row);
             });
         }
@@ -485,8 +513,10 @@
             }
         }
 
-        function handleDeleteExpenseAttempt(expenseId, expenseDescription) {
+        function handleDeleteExpenseAttempt(expenseId) {
             itemToDeleteId = expenseId;
+            const exp = (window.lastExpensesLog || []).find(e => e.id === expenseId);
+            const expenseDescription = exp ? (exp.description || exp.category) : '';
             const desc = expenseDescription ? ` for "${expenseDescription}"` : '';
             document.getElementById('modal-message').textContent = `Are you sure you want to remove this expense${desc}? This action cannot be undone.`;
             document.getElementById('confirm-delete-btn').onclick = () => deleteExpense(expenseId);
