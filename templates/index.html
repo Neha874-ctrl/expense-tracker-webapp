@@ -124,16 +124,11 @@
                                 <!-- Options will be injected here -->
                             </select>
                             
-                            <div id="custom-dropdown-trigger" class="w-full border border-outline rounded-xl px-4 py-3 bg-transparent text-on-surface focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all duration-200 text-sm cursor-pointer flex items-center justify-between">
+                            <div id="custom-dropdown-trigger" class="w-full border border-outline rounded-xl px-4 py-3 bg-surface-container-low text-on-surface transition-all duration-200 text-sm cursor-pointer flex items-center justify-between" style="box-sizing: border-box;">
                                 <span id="custom-dropdown-selected" class="text-on-surface-variant/70">Select Category</span>
                                 <span class="material-symbols-outlined text-on-surface-variant transition-transform duration-200" id="dropdown-arrow">arrow_drop_down</span>
                             </div>
-                            <label class="absolute left-3 -top-2 px-1 bg-surface-container-low text-xs text-on-surface-variant">Category</label>
-                            
-                            <!-- Custom Options Dropdown List -->
-                            <div id="custom-dropdown-menu" class="hidden absolute left-0 right-0 mt-2 bg-surface-container-high border border-outline-variant/30 rounded-xl shadow-lg z-[100] max-h-48 overflow-y-auto p-1.5 flex flex-col gap-1 animate-fade-in">
-                                <!-- Custom Options list will be generated here -->
-                            </div>
+                            <label class="absolute left-3 -top-2 px-1 bg-surface-container-low text-xs text-on-surface-variant pointer-events-none">Category</label>
                         </div>
                         
                         <div class="relative">
@@ -376,12 +371,13 @@
         function renderCategories(categories, currentBudget) {
             const categoryListDiv = document.getElementById('category-list');
             const expenseCategorySelect = document.getElementById('expense-category');
-            const customDropdownMenu = document.getElementById('custom-dropdown-menu');
+            // Use the body-level portal (created by the dropdown init block below)
+            const customDropdownMenu = document.getElementById('custom-dropdown-menu') || window._dropdownPortal;
             const customDropdownSelected = document.getElementById('custom-dropdown-selected');
 
             categoryListDiv.innerHTML = '';
             expenseCategorySelect.innerHTML = ''; 
-            customDropdownMenu.innerHTML = '';
+            if (customDropdownMenu) customDropdownMenu.innerHTML = '';
 
             const defaultOpt = document.createElement('option');
             defaultOpt.value = '';
@@ -795,12 +791,25 @@
 
         // Custom Dropdown Open/Close State Managers
         const dropdownTrigger = document.getElementById('custom-dropdown-trigger');
-        const dropdownMenu = document.getElementById('custom-dropdown-menu');
         const dropdownArrow = document.getElementById('dropdown-arrow');
+
+        // Create a body-level portal for the dropdown to escape stacking contexts
+        const dropdownPortal = document.createElement('div');
+        dropdownPortal.id = 'custom-dropdown-menu';
+        dropdownPortal.className = 'hidden fixed bg-surface-container-high border border-outline-variant/30 rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 overflow-y-auto animate-fade-in';
+        dropdownPortal.style.cssText = 'z-index: 9999; max-height: 220px; min-width: 200px;';
+        document.body.appendChild(dropdownPortal);
+
+        function positionDropdownPortal() {
+            const rect = dropdownTrigger.getBoundingClientRect();
+            dropdownPortal.style.top = (rect.bottom + 6) + 'px';
+            dropdownPortal.style.left = rect.left + 'px';
+            dropdownPortal.style.width = rect.width + 'px';
+        }
 
         function toggleCustomDropdown(e) {
             e.stopPropagation();
-            const isOpen = !dropdownMenu.classList.contains('hidden');
+            const isOpen = !dropdownPortal.classList.contains('hidden');
             if (isOpen) {
                 closeCustomDropdown();
             } else {
@@ -809,13 +818,17 @@
         }
 
         function openCustomDropdown() {
-            dropdownMenu.classList.remove('hidden');
+            positionDropdownPortal();
+            dropdownPortal.classList.remove('hidden');
             dropdownArrow.style.transform = 'rotate(180deg)';
+            // Highlight trigger
+            dropdownTrigger.classList.add('border-primary', 'ring-1', 'ring-primary');
         }
 
         function closeCustomDropdown() {
-            dropdownMenu.classList.add('hidden');
+            dropdownPortal.classList.add('hidden');
             dropdownArrow.style.transform = 'rotate(0deg)';
+            dropdownTrigger.classList.remove('border-primary', 'ring-1', 'ring-primary');
         }
 
         if (dropdownTrigger) {
@@ -825,10 +838,14 @@
         // Close dropdown menu when clicking outside the container
         document.addEventListener('click', function(e) {
             const container = document.getElementById('custom-dropdown-container');
-            if (container && !container.contains(e.target)) {
+            if (container && !container.contains(e.target) && !dropdownPortal.contains(e.target)) {
                 closeCustomDropdown();
             }
         });
+
+        // Reposition on scroll/resize
+        window.addEventListener('resize', () => { if (!dropdownPortal.classList.contains('hidden')) positionDropdownPortal(); });
+        window.addEventListener('scroll', () => { if (!dropdownPortal.classList.contains('hidden')) positionDropdownPortal(); }, true);
 
         // Reset custom label and selected styles on form reset
         document.getElementById('expense-form').addEventListener('reset', function() {
