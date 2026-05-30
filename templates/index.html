@@ -119,10 +119,8 @@
                     </div>
                     <form id="expense-form" class="flex flex-col gap-5">
                         <div class="relative w-full" id="custom-dropdown-container">
-                            <!-- Hidden native select for standard validation and form serialization -->
-                            <select id="expense-category" name="category" required class="hidden">
-                                <!-- Options will be injected here -->
-                            </select>
+                            <!-- Hidden input for reliable FormData serialization (display:none selects can be skipped) -->
+                            <input type="hidden" id="expense-category" name="category" value="">
                             
                             <div id="custom-dropdown-trigger" class="w-full border border-outline rounded-xl px-4 py-3 bg-surface-container-low text-on-surface transition-all duration-200 text-sm cursor-pointer flex items-center justify-between" style="box-sizing: border-box;">
                                 <span id="custom-dropdown-selected" class="text-on-surface-variant/70">Select Category</span>
@@ -408,21 +406,13 @@
 
         function renderCategories(categories, currentBudget) {
             const categoryListDiv = document.getElementById('category-list');
-            const expenseCategorySelect = document.getElementById('expense-category');
-            // Use the body-level portal (created by the dropdown init block below)
+            const categoryInput = document.getElementById('expense-category');
+            const currentValue = categoryInput ? categoryInput.value : '';
             const customDropdownMenu = document.getElementById('custom-dropdown-menu') || window._dropdownPortal;
             const customDropdownSelected = document.getElementById('custom-dropdown-selected');
 
             categoryListDiv.innerHTML = '';
-            expenseCategorySelect.innerHTML = ''; 
             if (customDropdownMenu) customDropdownMenu.innerHTML = '';
-
-            const defaultOpt = document.createElement('option');
-            defaultOpt.value = '';
-            defaultOpt.textContent = 'Select Category';
-            defaultOpt.disabled = true;
-            defaultOpt.selected = !expenseCategorySelect.value;
-            expenseCategorySelect.appendChild(defaultOpt);
 
             if (categories.length === 0) {
                 categoryListDiv.innerHTML = `
@@ -436,9 +426,11 @@
                         <p class="text-[10px] text-on-surface-variant/70 mt-1 max-w-[200px]">Define a custom category name below to structure your budget limits.</p>
                     </div>
                 `;
-                
-                customDropdownSelected.textContent = 'Select Category';
-                customDropdownSelected.className = 'text-on-surface-variant/70';
+                if (customDropdownSelected) {
+                    customDropdownSelected.textContent = 'Select Category';
+                    customDropdownSelected.removeAttribute('style');
+                }
+                if (categoryInput) categoryInput.value = '';
             }
 
             categories.forEach(cat => {
@@ -456,15 +448,9 @@
                 catElement.querySelector('.remove-category-btn').onclick = () => handleCategoryAttempt('remove', cat);
                 categoryListDiv.appendChild(catElement);
 
-                // 2. Native select option
-                const option = document.createElement('option');
-                option.value = cat;
-                option.textContent = cat;
-                expenseCategorySelect.appendChild(option);
-
-                // 3. Custom dropdown option
+                // 2. Custom dropdown option
                 const optElement = document.createElement('div');
-                const isSelected = expenseCategorySelect.value === cat;
+                const isSelected = currentValue === cat;
                 optElement.style.cssText = `
                     padding: 10px 14px;
                     border-radius: 10px;
@@ -486,14 +472,16 @@
                     if (!isSelected) optElement.style.background = 'color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent)';
                 });
                 optElement.addEventListener('mouseleave', () => {
-                    if (!isSelected) optElement.style.background = 'transparent';
+                    optElement.style.background = isSelected ? 'color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent)' : 'transparent';
                 });
                 optElement.onclick = (e) => {
                     e.stopPropagation();
-                    expenseCategorySelect.value = cat;
-                    customDropdownSelected.textContent = cat;
-                    customDropdownSelected.style.color = 'var(--md-sys-color-on-surface)';
-                    customDropdownSelected.style.fontWeight = '600';
+                    if (categoryInput) categoryInput.value = cat;
+                    if (customDropdownSelected) {
+                        customDropdownSelected.textContent = cat;
+                        customDropdownSelected.style.color = 'var(--md-sys-color-on-surface)';
+                        customDropdownSelected.style.fontWeight = '600';
+                    }
                     closeCustomDropdown();
                     renderCategories(categories, currentBudget);
                 };
@@ -970,6 +958,18 @@
             e.preventDefault();
             
             const form = e.target;
+
+            // Validate custom dropdown selection
+            const categoryInput = document.getElementById('expense-category');
+            if (!categoryInput.value || categoryInput.value.trim() === '') {
+                showAlert('Please select a category first.', 'error');
+                // Flash the trigger red briefly
+                const trigger = document.getElementById('custom-dropdown-trigger');
+                trigger.style.borderColor = 'var(--md-sys-color-error)';
+                setTimeout(() => { trigger.style.borderColor = ''; }, 1500);
+                return;
+            }
+
             const data = new FormData(form);
             const expenseData = {};
 
@@ -1063,10 +1063,15 @@
         // Reset custom label and selected styles on form reset
         document.getElementById('expense-form').addEventListener('reset', function() {
             const selectedSpan = document.getElementById('custom-dropdown-selected');
+            const categoryInput = document.getElementById('expense-category');
             if (selectedSpan) {
                 selectedSpan.textContent = 'Select Category';
-                selectedSpan.className = 'text-on-surface-variant/70';
+                selectedSpan.removeAttribute('style');
             }
+            if (categoryInput) categoryInput.value = '';
+            // Reset trigger border
+            const trigger = document.getElementById('custom-dropdown-trigger');
+            if (trigger) trigger.style.borderColor = '';
         });
         
         // Initial load
