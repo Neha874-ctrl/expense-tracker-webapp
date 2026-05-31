@@ -396,6 +396,30 @@
                 .replace(/'/g, "&#039;");
         }
 
+        // Vibrant, distinct colors that stand out from the beige/sage theme
+        const CATEGORY_PALETTE = [
+            '#00b4d8', // Vibrant Blue-Teal
+            '#9b5de5', // Vibrant Purple
+            '#f15bb5', // Vibrant Magenta
+            '#fee440', // Vibrant Yellow
+            '#00f5d4', // Vibrant Mint
+            '#ff70a6', // Vibrant Pastel Pink
+            '#ff9770', // Vibrant Coral
+            '#4ea8de', // Vibrant Sky Blue
+            '#70e000', // Vibrant Lime Green
+            '#ff5400'  // Vibrant Red-Orange
+        ];
+
+        // Helper to get consistent category color based on alphabetical sorting
+        function getCategoryColor(categoryName, report) {
+            if (!report) return 'var(--md-sys-color-primary)';
+            const idx = report.findIndex(item => item.category === categoryName);
+            if (idx !== -1) {
+                return CATEGORY_PALETTE[idx % CATEGORY_PALETTE.length];
+            }
+            return 'var(--md-sys-color-primary)';
+        }
+
         // Theme Management
         let currentTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
@@ -666,20 +690,6 @@
             section.innerHTML = '';
             if (!report || report.length === 0) return;
 
-            // Vibrant, distinct colors that stand out from the beige/sage theme
-            const palette = [
-                '#00b4d8', // Vibrant Blue-Teal
-                '#9b5de5', // Vibrant Purple
-                '#f15bb5', // Vibrant Magenta
-                '#fee440', // Vibrant Yellow
-                '#00f5d4', // Vibrant Mint
-                '#ff70a6', // Vibrant Pastel Pink
-                '#ff9770', // Vibrant Coral
-                '#4ea8de', // Vibrant Sky Blue
-                '#70e000', // Vibrant Lime Green
-                '#ff5400'  // Vibrant Red-Orange
-            ];
-
             const SIZE = 72, R = 26, cx = 36, cy = 36;
             const CIRC = 2 * Math.PI * R;
             const svgNS = 'http://www.w3.org/2000/svg';
@@ -704,7 +714,7 @@
             // Total budget capacity
             const cap = totalBudget > 0 ? Math.max(totalBudget, totalSpent) : (totalSpent > 0 ? totalSpent : 1);
 
-            itemsWithSpend.forEach((item, i) => {
+            itemsWithSpend.forEach((item) => {
                 const ratio = item.spent / cap;
                 const dash = ratio * CIRC;
                 const gap  = CIRC - dash;
@@ -712,7 +722,8 @@
                 const arc = document.createElementNS(svgNS, 'circle');
                 arc.setAttribute('cx', cx); arc.setAttribute('cy', cy); arc.setAttribute('r', R);
                 arc.setAttribute('fill', 'none');
-                arc.setAttribute('stroke', palette[i % palette.length]);
+                const color = getCategoryColor(item.category, report);
+                arc.setAttribute('stroke', color);
                 arc.setAttribute('stroke-width', '10');
                 arc.setAttribute('stroke-dasharray', `${dash.toFixed(3)} ${gap.toFixed(3)}`);
                 arc.setAttribute('stroke-dashoffset', (-offsetAcc).toFixed(3));
@@ -786,11 +797,12 @@
             // Legend
             const legend = document.createElement('div');
             legend.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px 12px;flex:1;';
-            itemsWithSpend.forEach((item, i) => {
+            itemsWithSpend.forEach((item) => {
                 const pct = totalSpent > 0 ? ((item.spent / totalSpent) * 100).toFixed(1) : '0.0';
                 const dot = document.createElement('div');
                 dot.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:0.68rem;font-weight:600;color:var(--md-sys-color-on-surface-variant);';
-                dot.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${palette[i % palette.length]};flex-shrink:0;"></span>${escapeHtml(item.category)}<span style="color:var(--md-sys-color-on-surface-variant);opacity:0.6;font-weight:400;">${pct}%</span>`;
+                const color = getCategoryColor(item.category, report);
+                dot.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:${color};flex-shrink:0;"></span>${escapeHtml(item.category)}<span style="color:var(--md-sys-color-on-surface-variant);opacity:0.6;font-weight:400;">${pct}%</span>`;
                 legend.appendChild(dot);
             });
 
@@ -901,7 +913,7 @@
             });
         }
 
-        function renderExpenseLog(expenses) {
+        function renderExpenseLog(expenses, report) {
             const logBody = document.getElementById('expense-log-body');
             const emptyMessage = document.getElementById('empty-expense-log');
             logBody.innerHTML = '';
@@ -922,12 +934,13 @@
                 
                 const expenseId = exp.id;
                 const amountText = `₹${exp.amount.toFixed(2)}`;
+                const color = getCategoryColor(exp.category, report);
 
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-on-surface font-medium">${exp.date}</td>
                     <td class="category-cell px-6 py-4 whitespace-nowrap text-sm font-semibold text-primary"></td>
                     <td class="desc-cell px-6 py-4 text-sm text-on-surface-variant font-medium"></td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-on-surface text-right">${amountText}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-right" style="color: ${color};">${amountText}</td>
                     
                     <td class="px-6 py-4 whitespace-nowrap text-center">
                         <button class="delete-btn h-8 w-8 text-on-surface-variant hover:text-error hover:bg-error-container/20 rounded-full transition-all duration-150 flex items-center justify-center mx-auto" 
@@ -952,7 +965,7 @@
             const reportResult = await apiFetch('/api/report');
             if (reportResult) {
                 renderReport(reportResult);
-                renderExpenseLog(reportResult.expenses_log);
+                renderExpenseLog(reportResult.expenses_log, reportResult.report);
             }
         }
         function showReportLoadingState() {
