@@ -31,9 +31,24 @@
     <!-- Top Navigation Header -->
     <header class="w-full bg-transparent px-6 py-4 flex items-center justify-between">
         <div class="flex items-center space-x-3.5">
-            <div class="h-10 w-10 rounded-full bg-primary-container flex items-center justify-center shadow-sm">
-                <span class="material-symbols-outlined text-on-primary-container text-xl">account_balance_wallet</span>
-            </div>
+            <svg class="h-10 w-10 flex-shrink-0" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="var(--md-sys-color-primary)" />
+                        <stop offset="100%" stop-color="var(--md-sys-color-tertiary)" />
+                    </linearGradient>
+                </defs>
+                <circle cx="256" cy="256" r="210" fill="none" stroke="url(#logoGrad)" stroke-width="36" />
+                <g fill="url(#logoGrad)">
+                    <path d="M 165,171 H 317 A 24,24 0 0 1 341,195 V 205 H 141 V 195 A 24,24 0 0 1 165,171 Z" opacity="0.85" />
+                    <rect x="141" y="201" width="200" height="140" rx="24" />
+                    <rect x="311" y="246" width="60" height="50" rx="16" />
+                    <circle cx="346" cy="271" r="7" fill="var(--md-sys-color-surface-container-lowest)" />
+                </g>
+                <svg x="196" y="226" width="90" height="90" viewBox="0 0 16 16" fill="var(--md-sys-color-surface-container-lowest)">
+                    <path d="M4 3.06h2.726c1.22 0 2.12.575 2.325 1.724H4v1.051h5.051C8.855 7.001 8 7.558 6.788 7.558H4v1.317L8.437 14h2.11L6.095 8.884h.855c2.316-.018 3.465-1.476 3.688-3.049H12V4.784h-1.345c-.08-.778-.357-1.335-.793-1.732H12V2H4z"/>
+                </svg>
+            </svg>
             <div>
                 <h1 class="text-xl font-bold tracking-tight text-on-surface">PAYGROUND TRACKER</h1>
             </div>
@@ -47,9 +62,7 @@
     <!-- Main Container -->
     <main class="flex-grow flex items-center justify-center px-4 py-8">
         <!-- Global Alert Message Box (Snackbar Style) -->
-        <div id="alert-box" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-0 scale-95 pointer-events-none">
-            <!-- Alerts will be injected here -->
-        </div>
+        <div id="alert-box" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none"></div>
 
         <!-- M3 Auth Card Container -->
         <div class="bg-surface-container-low border border-outline-variant/30 rounded-[28px] p-8 max-w-md w-full shadow-2xl flex flex-col gap-6 relative transition-colors duration-300" style="max-width: 448px;">
@@ -169,38 +182,72 @@
             passwordInput.value = '';
         }
 
-        // Snackbar alerts
+        // Snackbar notification helper — MD3 style
         function showAlert(message, type = 'success') {
             const alertBox = document.getElementById('alert-box');
-            let bgColor, icon;
-            
-            switch (type) {
-                case 'success':
-                    bgColor = 'bg-primary-container text-on-primary-container border-primary/20';
-                    icon = 'check_circle';
-                    break;
-                case 'error':
-                    bgColor = 'bg-error-container text-on-error-container border-error/20';
-                    icon = 'error';
-                    break;
-                default:
-                    bgColor = 'bg-surface-container-highest text-on-surface';
-                    icon = 'info';
-            }
 
-            const alertHtml = `
-                <div class="px-5 py-3 rounded-full border shadow-lg flex items-center space-x-2.5 backdrop-blur-md">
-                    <span class="material-symbols-outlined text-lg">${icon}</span>
-                    <p class="text-xs font-semibold tracking-wide">${escapeHtml(message)}</p>
-                </div>
+            const icons = {
+                success: 'check_circle',
+                error:   'error',
+                warning: 'warning',
+                info:    'info'
+            };
+            const iconColors = {
+                success: 'var(--md-sys-color-primary)',
+                error:   'var(--md-sys-color-error)',
+                warning: 'var(--md-sys-color-secondary)',
+                info:    'var(--md-sys-color-on-surface-variant)'
+            };
+            const icon = icons[type] || icons.info;
+            const iconColor = iconColors[type] || iconColors.info;
+
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 20px;
+                border-radius: 12px;
+                background: var(--md-sys-color-inverse-surface);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.2);
+                opacity: 0;
+                transform: translateY(10px);
+                transition: opacity 220ms ease-out, transform 220ms cubic-bezier(0.34,1.56,0.64,1);
+                pointer-events: auto;
+                white-space: nowrap;
             `;
-            
-            alertBox.innerHTML = alertHtml;
-            alertBox.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-100 scale-100 pointer-events-auto ${bgColor}`;
 
+            const iconEl = document.createElement('span');
+            iconEl.className = 'material-symbols-outlined';
+            iconEl.style.cssText = `font-size: 1.1rem; color: ${iconColor}; flex-shrink: 0;`;
+            iconEl.textContent = icon;
+
+            const msgEl = document.createElement('span');
+            msgEl.style.cssText = `font-size: 0.8125rem; font-weight: 500; color: var(--md-sys-color-inverse-on-surface); letter-spacing: 0.01em;`;
+            msgEl.textContent = message;
+
+            toast.appendChild(iconEl);
+            toast.appendChild(msgEl);
+
+            alertBox.innerHTML = '';
+            alertBox.appendChild(toast);
+            alertBox.style.pointerEvents = 'auto';
+
+            // Entrance
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            }));
+
+            // Auto-dismiss after 3.5s
             setTimeout(() => {
-                alertBox.className = "fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-0 scale-95 pointer-events-none";
-            }, 3000);
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(6px)';
+                setTimeout(() => {
+                    alertBox.innerHTML = '';
+                    alertBox.style.pointerEvents = 'none';
+                }, 250);
+            }, 3500);
         }
 
         // Auth Submit handler
