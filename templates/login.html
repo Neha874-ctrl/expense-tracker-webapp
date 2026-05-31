@@ -54,7 +54,7 @@
             </div>
         </div>
         <!-- Theme Toggle -->
-        <button id="theme-toggle" onclick="toggleTheme()" class="h-10 w-10 rounded-full border border-outline hover:bg-on-surface/5 active:scale-95 flex items-center justify-center transition-all duration-200 text-on-surface-variant hover:text-on-surface" title="Toggle Theme">
+        <button id="theme-toggle" onclick="toggleTheme(event)" class="h-10 w-10 rounded-full border border-outline hover:bg-on-surface/5 active:scale-95 flex items-center justify-center transition-all duration-200 text-on-surface-variant hover:text-on-surface" title="Toggle Theme">
             <span id="theme-icon" class="material-symbols-outlined">dark_mode</span>
         </button>
     </header>
@@ -138,11 +138,52 @@
             }
         }
         
-        function toggleTheme() {
-            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
-            document.documentElement.setAttribute('data-theme', currentTheme);
-            localStorage.setItem('theme', currentTheme);
-            updateThemeIcon(currentTheme);
+        function toggleTheme(event) {
+            const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            if (!document.startViewTransition) {
+                currentTheme = nextTheme;
+                document.documentElement.setAttribute('data-theme', currentTheme);
+                localStorage.setItem('theme', currentTheme);
+                updateThemeIcon(currentTheme);
+                return;
+            }
+            
+            let x = window.innerWidth / 2;
+            let y = window.innerHeight / 2;
+            
+            if (event) {
+                x = event.clientX;
+                y = event.clientY;
+            }
+            
+            const endRadius = Math.hypot(
+                Math.max(x, window.innerWidth - x),
+                Math.max(y, window.innerHeight - y)
+            );
+            
+            const transition = document.startViewTransition(() => {
+                currentTheme = nextTheme;
+                document.documentElement.setAttribute('data-theme', currentTheme);
+                localStorage.setItem('theme', currentTheme);
+                updateThemeIcon(currentTheme);
+            });
+            
+            transition.ready.then(() => {
+                document.documentElement.animate(
+                    {
+                        clipPath: [
+                            `circle(0px at ${x}px ${y}px)`,
+                            `circle(${endRadius}px at ${x}px ${y}px)`
+                        ]
+                    },
+                    {
+                        duration: 350,
+                        easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                        pseudoElement: '::view-transition-new(root)'
+                    }
+                );
+            });
         }
 
         // Initialize Theme Toggle
