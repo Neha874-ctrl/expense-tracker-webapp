@@ -2,10 +2,14 @@ import os
 import uuid
 from functools import wraps
 from datetime import datetime
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+
+# Load environment variables from .env if present
+load_dotenv()
 
 # --- Application Initialization ---
 
@@ -24,8 +28,8 @@ if env_origins:
 
 CORS(app, supports_credentials=True, origins=allowed_origins)
 
-# Add a stable secret key to keep session logins active across server restarts
-app.secret_key = os.environ.get('SECRET_KEY', 'payground-stable-secret-key-3b8c9d')
+# Secret key must come from environment variable
+app.secret_key = os.environ.get('SECRET_KEY')
 
 @app.after_request
 def add_security_headers(response):
