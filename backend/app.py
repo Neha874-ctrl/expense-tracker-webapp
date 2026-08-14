@@ -4,12 +4,19 @@ import sqlite3
 import requests
 from functools import wraps
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, request, jsonify, session
+from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # --- Configuration and Database Initialization ---
 
 app = Flask(__name__)
+CORS(app, supports_credentials=True, origins=[
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5000",
+    "http://127.0.0.1:5000"
+])
 
 # Add a stable secret key to keep session logins active across server restarts
 app.secret_key = os.environ.get('SECRET_KEY', 'payground-stable-secret-key-3b8c9d')
@@ -295,18 +302,23 @@ def login_required(f):
 
 # --- Authentication Endpoints ---
 
-@app.route('/login')
-def login_page():
-    """Renders the login/register screen."""
-    if 'user_id' in session:
-        return redirect(url_for('index'))
-    return render_template('login.html')
+@app.route('/api/auth/me', methods=['GET'])
+def get_current_user():
+    """Checks and returns the current authenticated session user."""
+    if 'user_id' in session and 'username' in session:
+        return jsonify({
+            "authenticated": True,
+            "username": session['username'],
+            "user_id": session['user_id']
+        }), 200
+    return jsonify({"authenticated": False}), 401
 
-@app.route('/logout')
+@app.route('/api/auth/logout', methods=['POST', 'GET'])
+@app.route('/logout', methods=['POST', 'GET'])
 def logout():
     """Clears user session and logs out."""
     session.clear()
-    return redirect(url_for('login_page'))
+    return jsonify({"message": "Logout successful!"}), 200
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
@@ -384,10 +396,8 @@ def login():
 
 @app.route('/')
 def index():
-    """Renders the main single-page application dashboard."""
-    if 'user_id' not in session:
-        return redirect(url_for('login_page'))
-    return render_template('index.html')
+    """API health status endpoint."""
+    return jsonify({"status": "ok", "service": "Payground Expense Tracker API", "version": "1.0.0"})
 
 @app.route('/api/state', methods=['GET'])
 @login_required
@@ -583,4 +593,4 @@ def generate_report():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

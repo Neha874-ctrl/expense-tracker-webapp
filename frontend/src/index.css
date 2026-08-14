@@ -127,24 +127,177 @@
   --md-sys-color-inverse-on-surface: #f2f3ea;
 }
 
-/* Scrollbar Customization matching MD3 theme */
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: var(--md-sys-color-background);
+  color: var(--md-sys-color-on-background);
+  transition: background-color 0.3s, color 0.3s;
+  margin: 0;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: 'Outfit', sans-serif;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Responsive Layout Classes */
+.dashboard-body {
+  height: 100vh;
+  overflow: hidden;
+}
+.dashboard-main {
+  flex: 1 1 0%;
+  min-height: 0px;
+  max-width: 80rem; /* max-w-7xl */
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem; /* px-4 */
+  padding-right: 1rem;
+  padding-top: 1.5rem; /* py-6 */
+  padding-bottom: 1.5rem;
+  overflow: hidden;
+}
+@media (min-width: 768px) {
+  .dashboard-main {
+    padding-left: 2rem; /* md:px-8 */
+    padding-right: 2rem;
+  }
+}
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 1.5rem; /* gap-6 */
+  height: 100%;
+  overflow: hidden;
+}
+@media (min-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.dashboard-col-left {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 0.5rem; /* pr-2 */
+}
+@media (min-width: 1024px) {
+  .dashboard-col-left {
+    grid-column: span 1 / span 1; /* lg:col-span-1 */
+  }
+}
+.dashboard-col-right {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem; /* gap-6 */
+  overflow: hidden;
+}
+@media (min-width: 1024px) {
+  .dashboard-col-right {
+    grid-column: span 2 / span 2; /* lg:col-span-2 */
+  }
+}
+.dashboard-card-half {
+  flex: 1 1 0%;
+  min-height: 0px;
+  overflow: hidden;
+}
+
+/* Dynamic Aspect Ratio / Sizing Adaptations */
+@media (max-height: 850px), (max-width: 1023px) {
+  .dashboard-body {
+    height: auto !important;
+    overflow-y: auto !important;
+  }
+  .dashboard-main {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .dashboard-grid {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .dashboard-col-left {
+    height: auto !important;
+    overflow: visible !important;
+    padding-right: 0 !important;
+  }
+  .dashboard-col-right {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .dashboard-card-half {
+    flex: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+}
+
+/* Styling improvements for inline budget inputs and container */
+.budget-input-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: color-mix(in srgb, var(--md-sys-color-surface-container-high) 80%, transparent);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 8px;
+  padding: 2px 8px;
+  transition: all 200ms ease;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+}
+.budget-input-wrapper:hover {
+  border-color: var(--md-sys-color-primary);
+  background: color-mix(in srgb, var(--md-sys-color-surface-container-high) 95%, transparent);
+}
+.budget-input-wrapper:focus-within {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+  background: var(--md-sys-color-surface-container-high);
+}
+.budget-input {
+  width: 4.8rem;
+  background: transparent;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+  border: none !important;
+  outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
-
 ::-webkit-scrollbar-track {
-  background: var(--md-sys-color-surface-container-lowest);
+  background: transparent;
+  margin: 4px;
 }
-
 ::-webkit-scrollbar-thumb {
   background: var(--md-sys-color-outline-variant);
   border-radius: 9999px;
-  border: 2px solid var(--md-sys-color-surface-container-lowest);
+  border: 1px solid transparent;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: var(--md-sys-color-outline);
+}
+
+/* Hide number input spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* Custom Ghost Mode Animation for dynamic premium skeleton loaders */
@@ -196,7 +349,7 @@
   pointer-events: none;
 }
 
-/* Custom premium chip deletion transition: collapses to circle, then shrinks to 0 */
+/* Custom premium chip deletion transition */
 @keyframes chipDelete {
   0% {
     opacity: 1;
