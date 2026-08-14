@@ -11,12 +11,19 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # --- Configuration and Database Initialization ---
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=[
+
+# Configurable origins from environment variable or standard localhost URLs
+allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:5000",
     "http://127.0.0.1:5000"
-])
+]
+env_origins = os.environ.get('ALLOWED_ORIGINS')
+if env_origins:
+    allowed_origins.extend([origin.strip() for origin in env_origins.split(',') if origin.strip()])
+
+CORS(app, supports_credentials=True, origins=allowed_origins)
 
 # Add a stable secret key to keep session logins active across server restarts
 app.secret_key = os.environ.get('SECRET_KEY', 'payground-stable-secret-key-3b8c9d')
@@ -51,7 +58,7 @@ DATABASE_AUTH_TOKEN = os.environ.get('DATABASE_AUTH_TOKEN')
 
 # 2. Turso HTTP API Setup
 # Convert the libsql URL (e.g., libsql://...) to the HTTPS endpoint
-API_URL = DATABASE_URL.replace("libsql://", "https://") if DATABASE_URL else ""
+API_URL = DATABASE_URL.replace("libsql://", "https://") if (DATABASE_URL and isinstance(DATABASE_URL, str)) else ""
 http_session = requests.Session()
 if DATABASE_AUTH_TOKEN:
     http_session.headers.update({
@@ -85,7 +92,7 @@ def execute_sql_batch_local(statements_input):
             if isinstance(item, dict):
                 q = item["q"]
                 args = item.get("params", [])
-            elif isinstance(item, tuple) or isinstance(item, list):
+            elif isinstance(item, (tuple, list)):
                 q = item[0]
                 args = item[1] if len(item) > 1 else []
             else:
@@ -135,7 +142,7 @@ def execute_sql_batch_remote(statements_input):
     for item in statements_input:
         if isinstance(item, dict):
             statements.append(item)
-        elif isinstance(item, tuple) or isinstance(item, list):
+        elif isinstance(item, (tuple, list)):
             q = item[0]
             args = item[1] if len(item) > 1 else []
             # Map Python types to simple JSON-serializable types in arguments
@@ -150,7 +157,6 @@ def execute_sql_batch_remote(statements_input):
             statements.append({"q": q, "params": mapped_args})
         else:
             statements.append({"q": item})
-
 
     try:
         response = http_session.post(f"{API_URL}", json={"statements": statements}, timeout=10)
@@ -324,9 +330,9 @@ def logout():
 def register():
     """Registers a new user and populates defaults."""
     try:
-        data = request.get_json()
-        username = data.get('username', '').strip().lower()
-        password = data.get('password', '')
+        data = request.get_json() or {}
+        username = str(data.get('username', '')).strip().lower()
+        password = str(data.get('password', ''))
 
         if not username or not password:
             return jsonify({"message": "Username and password cannot be empty."}), 400
@@ -365,9 +371,9 @@ def register():
 def login():
     """Logs in an existing user."""
     try:
-        data = request.get_json()
-        username = data.get('username', '').strip().lower()
-        password = data.get('password', '')
+        data = request.get_json() or {}
+        username = str(data.get('username', '')).strip().lower()
+        password = str(data.get('password', ''))
 
         if not username or not password:
             return jsonify({"message": "Username and password cannot be empty."}), 400
@@ -416,10 +422,14 @@ def handle_categories():
     """Adds or removes a category, persisting changes to Turso/SQLite."""
     user_id = session['user_id']
     try:
-        req_data = request.get_json()
+        req_data = request.get_json() or {}
         action = req_data.get('action')
-        category_name = req_data.get('category').strip().title()
+        raw_cat = req_data.get('category')
+        
+        if not raw_cat or not isinstance(raw_cat, str):
+            return jsonify({"message": "Category name cannot be empty."}), 400
 
+        category_name = raw_cat.strip().title()
         if not category_name:
             return jsonify({"message": "Category name cannot be empty."}), 400
         
@@ -463,6 +473,9 @@ def set_budget():
     user_id = session['user_id']
     try:
         new_budget = request.get_json()
+        if not isinstance(new_budget, dict):
+            return jsonify({"message": "Invalid budget data format."}), 400
+
         user_data = load_app_data(user_id)
         validated_budget = {}
         
@@ -472,7 +485,7 @@ def set_budget():
                 try:
                     amount = float(amount)
                     validated_budget[cat] = amount
-                except ValueError:
+                except (ValueError, TypeError):
                     return jsonify({"message": f"Invalid amount provided for category '{cat}'."}), 400
             else:
                 validated_budget[cat] = user_data['budget'].get(cat, 0.0)
@@ -498,10 +511,14 @@ def add_expense():
     """Adds a new expense transaction, persisting to Turso/SQLite."""
     user_id = session['user_id']
     try:
-        req_data = request.get_json()
-        category = req_data.get('category').strip().title()
+        req_data = request.get_json() or {}
+        raw_cat = req_data.get('category')
+        if not raw_cat or not isinstance(raw_cat, str):
+            return jsonify({"message": "Please select a valid category."}), 400
+
+        category = raw_cat.strip().title()
         amount_str = req_data.get('amount')
-        description = req_data.get('description', '').strip()
+        description = str(req_data.get('description', '')).strip()
         expense_id = str(uuid.uuid4())
         
         user_data = load_app_data(user_id)
@@ -523,7 +540,11 @@ def add_expense():
         )
 
         user_data = load_app_data(user_id)
-        return jsonify({"message": "Expense added successfully!", "data": user_data['expenses'][0]})
+        added_expense = next(
+            (item for item in user_data['expenses'] if item['id'] == expense_id),
+            {"id": expense_id, "category": category, "amount": amount, "date": date, "description": description}
+        )
+        return jsonify({"message": "Expense added successfully!", "data": added_expense})
 
     except Exception as e:
         print(f"Expense Error: {e}")
@@ -534,13 +555,16 @@ def add_expense():
 def delete_expense_api(expense_id):
     """Deletes an expense transaction by ID, persisting change to Turso/SQLite."""
     user_id = session['user_id']
-    
-    result = execute_sql("DELETE FROM expenses WHERE id = ? AND user_id = ?", [expense_id, user_id])
+    try:
+        result = execute_sql("DELETE FROM expenses WHERE id = ? AND user_id = ?", [expense_id, user_id])
 
-    if result.get('rows_affected', 0) == 0:
-        return jsonify({"message": f"Expense with ID {expense_id} not found."}), 404
+        if result.get('rows_affected', 0) == 0:
+            return jsonify({"message": f"Expense with ID {expense_id} not found."}), 404
 
-    return jsonify({"message": "Expense successfully removed!"}), 200
+        return jsonify({"message": "Expense successfully removed!"}), 200
+    except Exception as e:
+        print(f"Delete Expense Error: {e}")
+        return jsonify({"message": f"An error occurred: {str(e)}"}), 500
 
 @app.route('/api/report', methods=['GET'])
 @login_required
