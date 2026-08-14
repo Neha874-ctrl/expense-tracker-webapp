@@ -1,14 +1,13 @@
 import os
 import uuid
-import sqlite3
-import requests
 from functools import wraps
 from datetime import datetime
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 
-# --- Configuration and Database Initialization ---
+# --- Application Initialization ---
 
 app = Flask(__name__)
 
@@ -38,7 +37,7 @@ def add_security_headers(response):
     response.headers['Permissions-Policy'] = 'geolocation=(), camera=(), microphone=(), payment=()'
     response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
 
-    # Content Security Policy (CSP) - Allow scripts, Google Fonts, and Google Symbols
+    # Content Security Policy (CSP)
     csp = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline'; "
@@ -49,248 +48,96 @@ def add_security_headers(response):
         "upgrade-insecure-requests;"
     )
     response.headers['Content-Security-Policy'] = csp
-    
     return response
 
-# 1. Load Secure Environment Variables
-DATABASE_URL = os.environ.get('DATABASE_URL') 
-DATABASE_AUTH_TOKEN = os.environ.get('DATABASE_AUTH_TOKEN')
+# --- Database Configuration (SQLAlchemy + PostgreSQL) ---
 
-# 2. Turso HTTP API Setup
-# Convert the libsql URL (e.g., libsql://...) to the HTTPS endpoint
-API_URL = DATABASE_URL.replace("libsql://", "https://") if (DATABASE_URL and isinstance(DATABASE_URL, str)) else ""
-http_session = requests.Session()
-if DATABASE_AUTH_TOKEN:
-    http_session.headers.update({
-        "Authorization": f"Bearer {DATABASE_AUTH_TOKEN}",
-        "Content-Type": "application/json"
-    })
+db_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/expense_tracker')
+# Normalize connection string for SQLAlchemy with psycopg driver
+if db_url and db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
-# Determine if we use local sqlite3 fallback
-USE_LOCAL_DB = not API_URL
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-def execute_sql(sql_query, params=None):
-    """Executes a single SQL query via the Turso HTTP API or local SQLite connection."""
-    return execute_sql_batch([(sql_query, params or [])])[0]
+db = SQLAlchemy(app)
 
-def execute_sql_batch(statements_input):
-    """Router for executing statements: calls Turso API if configured, otherwise local SQLite."""
-    if USE_LOCAL_DB:
-        return execute_sql_batch_local(statements_input)
-    else:
-        return execute_sql_batch_remote(statements_input)
+# --- SQLAlchemy Models ---
 
-def execute_sql_batch_local(statements_input):
-    """Executes SQL statements locally in a transaction on a SQLite database file."""
-    results = []
-    db_path = os.path.join(os.path.dirname(__file__), "expense_tracker.db")
-    
-    conn = sqlite3.connect(db_path)
-    try:
-        cursor = conn.cursor()
-        for item in statements_input:
-            if isinstance(item, dict):
-                q = item["q"]
-                args = item.get("params", [])
-            elif isinstance(item, (tuple, list)):
-                q = item[0]
-                args = item[1] if len(item) > 1 else []
-            else:
-                q = item
-                args = []
+class User(db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.String, primary_key=True)
+    username = db.Column(db.String, unique=True, nullable=False)
+    password_hash = db.Column(db.String, nullable=False)
 
-            # Unpack argument types if they are from standard mapping
-            raw_args = []
-            for arg in args:
-                if isinstance(arg, dict) and "value" in arg:
-                    val = arg["value"]
-                    if arg.get("type") == "integer":
-                        raw_args.append(int(val))
-                    elif arg.get("type") == "float":
-                        raw_args.append(float(val))
-                    elif arg.get("type") == "null":
-                        raw_args.append(None)
-                    else:
-                        raw_args.append(val)
-                else:
-                    raw_args.append(arg)
+class Category(db.Model):
+    __tablename__ = 'categories'
+    name = db.Column(db.String, primary_key=True, nullable=False)
+    user_id = db.Column(db.String, primary_key=True, nullable=False)
 
-            cursor.execute(q, raw_args)
-            
-            rows = cursor.fetchall()
-            cols = [col[0] for col in cursor.description] if cursor.description else []
-            rows_affected = cursor.rowcount
-            
-            results.append({
-                "rows": [list(row) for row in rows],
-                "rows_affected": rows_affected if rows_affected >= 0 else 0,
-                "columns": cols
-            })
-            
-        conn.commit()
-        return results
-    except Exception as e:
-        conn.rollback()
-        print(f"Local SQLite Execution Error: {e}")
-        raise RuntimeError(f"SQL execution failed: {e}")
-    finally:
-        conn.close()
+class Budget(db.Model):
+    __tablename__ = 'budget'
+    category = db.Column(db.String, primary_key=True, nullable=False)
+    user_id = db.Column(db.String, primary_key=True, nullable=False)
+    limit_amount = db.Column(db.Float, nullable=False, default=0.0)
 
-def execute_sql_batch_remote(statements_input):
-    """Executes multiple SQL queries in a single HTTP request to the remote Turso API."""
-    statements = []
-    for item in statements_input:
-        if isinstance(item, dict):
-            statements.append(item)
-        elif isinstance(item, (tuple, list)):
-            q = item[0]
-            args = item[1] if len(item) > 1 else []
-            # Map Python types to simple JSON-serializable types in arguments
-            mapped_args = []
-            for arg in args:
-                if isinstance(arg, bool):
-                    mapped_args.append(1 if arg else 0)
-                elif isinstance(arg, (int, float, str)) or arg is None:
-                    mapped_args.append(arg)
-                else:
-                    mapped_args.append(str(arg))
-            statements.append({"q": q, "params": mapped_args})
-        else:
-            statements.append({"q": item})
+class Expense(db.Model):
+    __tablename__ = 'expenses'
+    id = db.Column(db.String, primary_key=True)
+    user_id = db.Column(db.String, nullable=False)
+    category = db.Column(db.String, nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    date = db.Column(db.String, nullable=False)
+    description = db.Column(db.String, nullable=True)
 
-    try:
-        response = http_session.post(f"{API_URL}", json={"statements": statements}, timeout=10)
-        response.raise_for_status()
-        
-        data = response.json()
-        
-        if not data or not isinstance(data, list):
-            return [{"rows": [], "rows_affected": 0, "columns": []}] * len(statements_input)
-
-        results = []
-        for item in data:
-            if 'error' in item:
-                 raise RuntimeError(f"Turso SQL Error: {item['error']}")
-            
-            result = item.get('results', {})
-            if 'error' in result:
-                raise RuntimeError(f"Turso SQL Error: {result['error']}")
-
-            # Parse result rows converting Turso format to simple list
-            raw_rows = result.get('rows', [])
-            parsed_rows = []
-            for row in raw_rows:
-                parsed_row = []
-                for val in row:
-                    if isinstance(val, dict) and "value" in val:
-                        # Extract value from Turso cell representation
-                        raw_val = val["value"]
-                        if val.get("type") == "integer":
-                            parsed_row.append(int(raw_val))
-                        elif val.get("type") == "float":
-                            parsed_row.append(float(raw_val))
-                        elif val.get("type") == "null":
-                            parsed_row.append(None)
-                        else:
-                            parsed_row.append(raw_val)
-                    else:
-                        parsed_row.append(val)
-                parsed_rows.append(parsed_row)
-
-            results.append({
-                "rows": parsed_rows,
-                "rows_affected": result.get('rows_affected', item.get('rows_affected', 0)),
-                "columns": result.get('cols', [])
-            })
-            
-        return results
-        
-    except requests.exceptions.RequestException as e:
-        print(f"HTTP Request Error to Turso: {e}")
-        raise RuntimeError(f"Connection or request failed: {e}")
-    except Exception as e:
-        print(f"Database Execution Error: {e}")
-        raise RuntimeError(f"SQL execution failed: {e}")
-
-def check_migration_needed():
-    """Checks if the existing schema lacks user_id, meaning database needs schema cleanup."""
-    try:
-        res = execute_sql("PRAGMA table_info(expenses)")
-        if not res or not res.get('rows'):
-            return True # Table doesn't exist, need initialization
-        columns = [row[1] for row in res['rows']]
-        return "user_id" not in columns
-    except Exception as e:
-        print(f"Migration check failed or DB uninitialized: {e}")
-        return True
+# --- Data Helpers ---
 
 def initialize_db():
-    """Ensures necessary tables are created and handles user-related migration/cleanup."""
-    try:
-        if check_migration_needed():
-            print("Database schema migration detected: Dropping old tables to clean database...")
-            drop_statements = [
-                "DROP TABLE IF EXISTS categories",
-                "DROP TABLE IF EXISTS expenses",
-                "DROP TABLE IF EXISTS budget",
-                "DROP TABLE IF EXISTS users"
-            ]
-            for q in drop_statements:
-                execute_sql(q)
-
-        # Create new user-isolated tables
-        statements = [
-            "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY NOT NULL, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL)",
-            "CREATE TABLE IF NOT EXISTS categories (name TEXT NOT NULL, user_id TEXT NOT NULL, PRIMARY KEY (name, user_id))",
-            "CREATE TABLE IF NOT EXISTS budget (category TEXT NOT NULL, user_id TEXT NOT NULL, limit_amount REAL NOT NULL, PRIMARY KEY (category, user_id))",
-            "CREATE TABLE IF NOT EXISTS expenses (id TEXT PRIMARY KEY NOT NULL, user_id TEXT NOT NULL, category TEXT NOT NULL, amount REAL NOT NULL, date TEXT NOT NULL, description TEXT)"
-        ]
-        
-        for q in statements:
-            execute_sql(q)
-            
-    except Exception as e:
-        print(f"Database Initialization Warning: {e}")
+    """Initializes tables in PostgreSQL database."""
+    with app.app_context():
+        db.create_all()
 
 def create_default_categories_for_user(user_id):
     """Sets up standard category chips and limits for new signups."""
     default_categories = ["Food", "Travel", "Entertainment"]
-    queries = []
     for cat in default_categories:
-        queries.append((
-            "INSERT INTO categories (name, user_id) VALUES (?, ?)",
-            [cat, user_id]
-        ))
-        queries.append((
-            "INSERT INTO budget (category, user_id, limit_amount) VALUES (?, ?, 0.0)",
-            [cat, user_id]
-        ))
-    execute_sql_batch(queries)
+        existing_cat = Category.query.filter_by(name=cat, user_id=user_id).first()
+        if not existing_cat:
+            db.session.add(Category(name=cat, user_id=user_id))
+        
+        existing_budget = Budget.query.filter_by(category=cat, user_id=user_id).first()
+        if not existing_budget:
+            db.session.add(Budget(category=cat, user_id=user_id, limit_amount=0.0))
+            
+    db.session.commit()
 
 def load_app_data(user_id):
-    """Loads all application state from the database for a specific user."""
-    queries = [
-        ("SELECT name FROM categories WHERE user_id = ? ORDER BY name ASC", [user_id]),
-        ("SELECT category, limit_amount FROM budget WHERE user_id = ?", [user_id]),
-        ("SELECT id, category, amount, date, description FROM expenses WHERE user_id = ? ORDER BY date DESC", [user_id])
-    ]
-    
-    results = execute_sql_batch(queries)
-    
-    categories = [row[0] for row in results[0]['rows']]
-    budget = {row[0]: row[1] for row in results[1]['rows']}
+    """Loads all application state from PostgreSQL for a specific user."""
+    category_objs = Category.query.filter_by(user_id=user_id).order_by(Category.name.asc()).all()
+    categories = [c.name for c in category_objs]
+
+    budget_objs = Budget.query.filter_by(user_id=user_id).all()
+    budget = {b.category: b.limit_amount for b in budget_objs}
+
+    expense_objs = Expense.query.filter_by(user_id=user_id).order_by(Expense.date.desc()).all()
     expenses = [
-        {"id": row[0], "category": row[1], "amount": row[2], "date": row[3], "description": row[4]} 
-        for row in results[2]['rows']
+        {
+            "id": e.id,
+            "category": e.category,
+            "amount": e.amount,
+            "date": e.date,
+            "description": e.description or ""
+        }
+        for e in expense_objs
     ]
-    
+
     return {
         "budget": budget,
         "expenses": expenses,
         "categories": categories
     }
 
-# 3. Initialize DB on Application Start
+# Initialize Database Schema
 try:
     initialize_db()
 except Exception as e:
@@ -341,19 +188,18 @@ def register():
             return jsonify({"message": "Password must be at least 6 characters long."}), 400
 
         # Check if user already exists
-        existing_user_res = execute_sql("SELECT id FROM users WHERE username = ?", [username])
-        if existing_user_res['rows']:
+        existing_user = User.query.filter_by(username=username).first()
+        if existing_user:
             return jsonify({"message": "Username is already taken."}), 409
 
         # Register user
         user_id = str(uuid.uuid4())
         password_hash = generate_password_hash(password)
         
-        execute_sql(
-            "INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)",
-            [user_id, username, password_hash]
-        )
-        
+        new_user = User(id=user_id, username=username, password_hash=password_hash)
+        db.session.add(new_user)
+        db.session.commit()
+
         # Populate defaults
         create_default_categories_for_user(user_id)
 
@@ -364,6 +210,7 @@ def register():
         return jsonify({"message": "Registration successful!", "username": username}), 201
 
     except Exception as e:
+        db.session.rollback()
         print(f"Register Error: {e}")
         return jsonify({"message": f"Registration failed: {str(e)}"}), 500
 
@@ -379,20 +226,15 @@ def login():
             return jsonify({"message": "Username and password cannot be empty."}), 400
 
         # Retrieve user
-        user_res = execute_sql("SELECT id, password_hash FROM users WHERE username = ?", [username])
-        if not user_res['rows']:
-            return jsonify({"message": "Invalid username or password."}), 401
-
-        user_id, password_hash = user_res['rows'][0]
-
-        if not check_password_hash(password_hash, password):
+        user = User.query.filter_by(username=username).first()
+        if not user or not check_password_hash(user.password_hash, password):
             return jsonify({"message": "Invalid username or password."}), 401
 
         # Log user in
-        session['user_id'] = user_id
-        session['username'] = username
+        session['user_id'] = user.id
+        session['username'] = user.username
 
-        return jsonify({"message": "Login successful!", "username": username}), 200
+        return jsonify({"message": "Login successful!", "username": user.username}), 200
 
     except Exception as e:
         print(f"Login Error: {e}")
@@ -419,7 +261,7 @@ def get_state():
 @app.route('/api/categories', methods=['POST'])
 @login_required
 def handle_categories():
-    """Adds or removes a category, persisting changes to Turso/SQLite."""
+    """Adds or removes a category, persisting changes to PostgreSQL."""
     user_id = session['user_id']
     try:
         req_data = request.get_json() or {}
@@ -439,10 +281,9 @@ def handle_categories():
             if category_name in user_data['categories']:
                 return jsonify({"message": f"Category '{category_name}' already exists."}), 409
             
-            execute_sql_batch([
-                ("INSERT INTO categories (name, user_id) VALUES (?, ?)", [category_name, user_id]),
-                ("INSERT INTO budget (category, user_id, limit_amount) VALUES (?, ?, 0.0)", [category_name, user_id])
-            ])
+            db.session.add(Category(name=category_name, user_id=user_id))
+            db.session.add(Budget(category=category_name, user_id=user_id, limit_amount=0.0))
+            db.session.commit()
             
             user_data = load_app_data(user_id)
             return jsonify({"message": f"Category '{category_name}' added.", "data": user_data})
@@ -451,11 +292,10 @@ def handle_categories():
             if category_name not in user_data['categories']:
                 return jsonify({"message": f"Category '{category_name}' not found."}), 404
             
-            execute_sql_batch([
-                ("DELETE FROM categories WHERE name = ? AND user_id = ?", [category_name, user_id]),
-                ("DELETE FROM budget WHERE category = ? AND user_id = ?", [category_name, user_id]),
-                ("DELETE FROM expenses WHERE category = ? AND user_id = ?", [category_name, user_id])
-            ])
+            Category.query.filter_by(name=category_name, user_id=user_id).delete()
+            Budget.query.filter_by(category=category_name, user_id=user_id).delete()
+            Expense.query.filter_by(category=category_name, user_id=user_id).delete()
+            db.session.commit()
 
             user_data = load_app_data(user_id)
             return jsonify({"message": f"Category '{category_name}' removed.", "data": user_data})
@@ -463,13 +303,14 @@ def handle_categories():
         return jsonify({"message": "Invalid category action."}), 400
 
     except Exception as e:
+        db.session.rollback()
         print(f"Category Error: {e}")
         return jsonify({"message": f"An error occurred: {str(e)}"}), 500
 
 @app.route('/api/budget', methods=['POST'])
 @login_required
 def set_budget():
-    """Sets the monthly budget for categories, persisting changes to Turso/SQLite."""
+    """Sets the monthly budget for categories, persisting changes to PostgreSQL."""
     user_id = session['user_id']
     try:
         new_budget = request.get_json()
@@ -490,25 +331,27 @@ def set_budget():
             else:
                 validated_budget[cat] = user_data['budget'].get(cat, 0.0)
 
-        # Update budgets in database using safe parameter binding
-        queries = [
-            ("INSERT OR REPLACE INTO budget (category, user_id, limit_amount) VALUES (?, ?, ?)", [cat, user_id, amount])
-            for cat, amount in validated_budget.items()
-        ]
-        if queries:
-            execute_sql_batch(queries)
+        for cat, amount in validated_budget.items():
+            existing_b = Budget.query.filter_by(category=cat, user_id=user_id).first()
+            if existing_b:
+                existing_b.limit_amount = amount
+            else:
+                db.session.add(Budget(category=cat, user_id=user_id, limit_amount=amount))
+
+        db.session.commit()
 
         user_data = load_app_data(user_id)
         return jsonify({"message": "Budget updated successfully!", "data": user_data})
 
     except Exception as e:
+        db.session.rollback()
         print(f"Budget Error: {e}")
         return jsonify({"message": f"An error occurred: {str(e)}"}), 500
 
 @app.route('/api/expense', methods=['POST'])
 @login_required
 def add_expense():
-    """Adds a new expense transaction, persisting to Turso/SQLite."""
+    """Adds a new expense transaction, persisting to PostgreSQL."""
     user_id = session['user_id']
     try:
         req_data = request.get_json() or {}
@@ -534,10 +377,16 @@ def add_expense():
 
         date = datetime.now().strftime("%Y-%m-%d")
         
-        execute_sql(
-            "INSERT INTO expenses (id, user_id, category, amount, date, description) VALUES (?, ?, ?, ?, ?, ?)",
-            [expense_id, user_id, category, amount, date, description]
+        new_expense = Expense(
+            id=expense_id,
+            user_id=user_id,
+            category=category,
+            amount=amount,
+            date=date,
+            description=description
         )
+        db.session.add(new_expense)
+        db.session.commit()
 
         user_data = load_app_data(user_id)
         added_expense = next(
@@ -547,22 +396,26 @@ def add_expense():
         return jsonify({"message": "Expense added successfully!", "data": added_expense})
 
     except Exception as e:
+        db.session.rollback()
         print(f"Expense Error: {e}")
         return jsonify({"message": f"An error occurred: {str(e)}"}), 500
 
 @app.route('/api/expense/<expense_id>', methods=['DELETE'])
 @login_required
 def delete_expense_api(expense_id):
-    """Deletes an expense transaction by ID, persisting change to Turso/SQLite."""
+    """Deletes an expense transaction by ID, persisting change to PostgreSQL."""
     user_id = session['user_id']
     try:
-        result = execute_sql("DELETE FROM expenses WHERE id = ? AND user_id = ?", [expense_id, user_id])
-
-        if result.get('rows_affected', 0) == 0:
+        expense = Expense.query.filter_by(id=expense_id, user_id=user_id).first()
+        if not expense:
             return jsonify({"message": f"Expense with ID {expense_id} not found."}), 404
+
+        db.session.delete(expense)
+        db.session.commit()
 
         return jsonify({"message": "Expense successfully removed!"}), 200
     except Exception as e:
+        db.session.rollback()
         print(f"Delete Expense Error: {e}")
         return jsonify({"message": f"An error occurred: {str(e)}"}), 500
 
@@ -591,7 +444,7 @@ def generate_report():
             spent_by_category[cat] = spent_by_category.get(cat, 0) + amt
             total_spent += amt
 
-    # Compile the report data
+    # Compile report data
     report = []
     total_budget = 0.0
     for cat in categories:
