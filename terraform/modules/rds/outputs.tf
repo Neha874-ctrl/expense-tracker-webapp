@@ -18,3 +18,7 @@ output "db_username" {
   value     = aws_db_instance.postgres.username
   sensitive = true
 }
+
+output "db_instance_identifier" {
+  value = aws_db_instance.postgres.identifier
+}

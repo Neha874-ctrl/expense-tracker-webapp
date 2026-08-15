@@ -129,15 +129,17 @@ output "sns_topic_name" {
 }
 
 output "service_name" {
-  value = aws_ecs_service.backend.name
+  value = module.ecs.service_name
 }
+
 output "alb_arn_suffix" {
-  value = aws_lb.main.arn_suffix
+  value = module.alb.alb_arn_suffix
 }
 
 output "target_group_arn_suffix" {
-  value = aws_lb_target_group.backend.arn_suffix
+  value = module.alb.target_group_arn_suffix
 }
+
 output "db_instance_identifier" {
-  value = aws_db_instance.main.identifier
+  value = module.rds.db_instance_identifier
 }
