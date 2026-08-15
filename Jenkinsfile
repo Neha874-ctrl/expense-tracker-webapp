@@ -36,16 +36,10 @@ pipeline {
         }
 
         stage('Docker Build') {
-            steps {
-                sh '''
-                    docker build \
-                      -f Dockerfile \
-                      -t ${ECR_IMAGE}:${IMAGE_TAG} \
-                      
-                      .
-                '''
-            }
-        }
+    steps {
+        sh 'docker build -f Dockerfile -t ${ECR_IMAGE}:${IMAGE_TAG} .'
+    }
+}
 
         stage('ECR Login') {
             steps {
