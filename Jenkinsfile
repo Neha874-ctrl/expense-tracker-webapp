@@ -63,7 +63,7 @@ pipeline {
             steps {
                 sh '''
                     docker push ${ECR_IMAGE}:${IMAGE_TAG}
-                    docker push ${ECR_IMAGE}:latest
+                    
                 '''
             }
         }
