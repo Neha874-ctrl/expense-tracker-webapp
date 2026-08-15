@@ -17,3 +17,9 @@ Thumbs.db
 
 # SQLite local DB
 *.db
+
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfvars.json
