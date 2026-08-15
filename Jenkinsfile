@@ -41,7 +41,7 @@ pipeline {
                     docker build \
                       -f Dockerfile \
                       -t ${ECR_IMAGE}:${IMAGE_TAG} \
-                      -t ${ECR_IMAGE}:latest \
+                      
                       .
                 '''
             }
@@ -81,17 +81,19 @@ pipeline {
                     '''
 
                     sh '''
-                        python3 - <<'PY'
+                       ECR_IMAGE="${ECR_IMAGE}" IMAGE_TAG="${IMAGE_TAG}" python3 - <<'PY'
 import json
+import os
 
 with open("task-definition.json") as f:
     task = json.load(f)
 
+image = f"{os.environ['ECR_IMAGE']}:{os.environ['IMAGE_TAG']}"
+
 for container in task["containerDefinitions"]:
     if container["name"] == "backend":
-        container["image"] = f"${ECR_IMAGE}:${IMAGE_TAG}"
+        container["image"] = image
 
-# Remove fields that cannot be included when registering a new revision
 for key in [
     "taskDefinitionArn",
     "revision",
