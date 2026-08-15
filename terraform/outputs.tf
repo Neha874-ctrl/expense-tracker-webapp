@@ -108,3 +108,36 @@ output "ecs_cluster_name" {
 output "ecs_task_definition_arn" {
   value = module.ecs.task_definition_arn
 }
+output "alb_dns_name" {
+  value = module.alb.alb_dns_name
+}
+
+output "alb_target_group_arn" {
+  value = module.alb.target_group_arn
+}
+
+output "alb_listener_arn" {
+  value = module.alb.listener_arn
+}
+
+output "sns_topic_arn" {
+  value = module.sns.topic_arn
+}
+
+output "sns_topic_name" {
+  value = module.sns.topic_name
+}
+
+output "service_name" {
+  value = aws_ecs_service.backend.name
+}
+output "alb_arn_suffix" {
+  value = aws_lb.main.arn_suffix
+}
+
+output "target_group_arn_suffix" {
+  value = aws_lb_target_group.backend.arn_suffix
+}
+output "db_instance_identifier" {
+  value = aws_db_instance.main.identifier
+}

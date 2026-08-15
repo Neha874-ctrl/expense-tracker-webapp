@@ -82,5 +82,57 @@ module "ecs" {
   ecr_repository_url = module.ecr.repository_url
   log_group_name     = module.cloudwatch.log_group_name
 
+  private_subnet_ids    = module.vpc.private_subnet_ids
+  ecs_security_group_id = module.security_groups.ecs_security_group_id
+  target_group_arn      = module.alb.target_group_arn
+
   container_port = 5000
+}
+
+module "alb" {
+  source = "./modules/alb"
+
+  project_name = "expense-tracker"
+  environment  = var.environment
+
+  vpc_id            = module.vpc.vpc_id
+  public_subnet_ids = module.vpc.public_subnet_ids
+
+  security_group_id = module.security_groups.alb_security_group_id
+
+  container_port = 5000
+}
+
+module "sns" {
+  source = "./modules/sns"
+
+  project_name = "expense-tracker"
+  environment  = var.environment
+
+  notification_email = var.notification_email
+}
+module "cloudwatch_alarms" {
+  source = "./modules/cloudwatch_alarms"
+
+  project_name = "expense-tracker"
+  environment  = var.environment
+
+  sns_topic_arn = module.sns.topic_arn
+
+  ecs_cluster_name = module.ecs.cluster_name
+  ecs_service_name = module.ecs.service_name
+
+  alb_arn_suffix          = module.alb.alb_arn_suffix
+  target_group_arn_suffix = module.alb.target_group_arn_suffix
+
+  rds_instance_identifier = module.rds.db_instance_identifier
+}
+
+module "waf" {
+  source = "./modules/waf"
+
+  project_name = "expense-tracker"
+  environment  = var.environment
+
+  alb_arn = module.alb.alb_arn
 }
