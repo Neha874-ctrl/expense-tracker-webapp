@@ -41,7 +41,7 @@ resource "aws_db_instance" "postgres" {
 
   publicly_accessible = false
 
-  backup_retention_period = 7
+  backup_retention_period = 0
 
   backup_window = "03:00-04:00"
 

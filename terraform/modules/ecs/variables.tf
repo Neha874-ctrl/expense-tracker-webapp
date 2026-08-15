@@ -37,3 +37,15 @@ variable "ecs_security_group_id" {
 variable "target_group_arn" {
   type = string
 }
+
+variable "listener_arn" {
+  type = string
+}
+
+variable "cluster_name" {
+  type = string
+}
+
+variable "service_name" {
+  type = string
+}

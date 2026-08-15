@@ -85,8 +85,16 @@ module "ecs" {
   private_subnet_ids    = module.vpc.private_subnet_ids
   ecs_security_group_id = module.security_groups.ecs_security_group_id
   target_group_arn      = module.alb.target_group_arn
+  listener_arn          = module.alb.listener_arn
+
+  cluster_name = "expense-tracker-${var.environment}"
+  service_name = "expense-tracker-backend-${var.environment}"
 
   container_port = 5000
+
+  depends_on = [
+    module.alb
+  ]
 }
 
 module "alb" {
@@ -135,4 +143,8 @@ module "waf" {
   environment  = var.environment
 
   alb_arn = module.alb.alb_arn
+
+  depends_on = [
+    module.alb
+  ]
 }
